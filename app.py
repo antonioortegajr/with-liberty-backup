@@ -21,7 +21,7 @@ class SubstackBackupStack(Stack):
         # Lambda function
         lambda_fn = _lambda.Function(
             self, "substack-back-up",
-            runtime=_lambda.Runtime.PYTHON_3_12,
+            runtime=_lambda.Runtime.PYTHON_3_11,
             handler="lambda_function.lambda_handler",
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(15),
@@ -41,5 +41,5 @@ class SubstackBackupStack(Stack):
         rule.add_target(targets.LambdaFunction(lambda_fn))
 
 app = cdk.App()
-SubstackBackupStack(app, "SubstackBackupStack", env=cdk.Environment(region="us-east-2"))
+SubstackBackupStack(app, "SubstackBackupStack", env=cdk.Environment(region="us-east-1"))
 app.synth()

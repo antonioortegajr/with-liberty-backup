@@ -1,0 +1,34 @@
+{
+  "version": "34.0.0",
+  "files": {
+    "60d61862aa1e0a51db4cee82d2b088cbfd42ee6e5db794640615dc967ff8a12e": {
+      "source": {
+        "path": "asset.60d61862aa1e0a51db4cee82d2b088cbfd42ee6e5db794640615dc967ff8a12e",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-us-east-1": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "60d61862aa1e0a51db4cee82d2b088cbfd42ee6e5db794640615dc967ff8a12e.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    },
+    "6d1228d31a5d30147aae054f33154ed4c8b3b9d1283a2eef7fef540ee2df0997": {
+      "source": {
+        "path": "SubstackBackupStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-us-east-1": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1",
+          "objectKey": "6d1228d31a5d30147aae054f33154ed4c8b3b9d1283a2eef7fef540ee2df0997.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
