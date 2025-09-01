@@ -1,0 +1,101 @@
+{
+  "version": "34.0.0",
+  "artifacts": {
+    "SubstackBackupStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "SubstackBackupStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "SubstackBackupStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/us-east-1",
+      "properties": {
+        "templateFile": "SubstackBackupStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/6d1228d31a5d30147aae054f33154ed4c8b3b9d1283a2eef7fef540ee2df0997.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "SubstackBackupStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "SubstackBackupStack.assets"
+      ],
+      "metadata": {
+        "/SubstackBackupStack/substack-articles/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "substackarticles77BA1856"
+          }
+        ],
+        "/SubstackBackupStack/substack-back-up/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "substackbackupServiceRoleBFE0D96D"
+          }
+        ],
+        "/SubstackBackupStack/substack-back-up/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "substackbackupServiceRoleDefaultPolicy1A4D7BBE"
+          }
+        ],
+        "/SubstackBackupStack/substack-back-up/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "substackbackupAA265BD7"
+          }
+        ],
+        "/SubstackBackupStack/WeeklyTrigger/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "WeeklyTrigger4049EA01"
+          }
+        ],
+        "/SubstackBackupStack/WeeklyTrigger/AllowEventRuleSubstackBackupStacksubstackbackupF5FAAB28": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "WeeklyTriggerAllowEventRuleSubstackBackupStacksubstackbackupF5FAAB285AD27C4A"
+          }
+        ],
+        "/SubstackBackupStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/SubstackBackupStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/SubstackBackupStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "SubstackBackupStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Substack backup Lambda and S3 infrastructure'
+
+Resources:
+  SubstackArticlesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: substack-articles
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3WriteAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: !Sub "${SubstackArticlesBucket.Arn}/*"
+
+  SubstackBackupLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: substack-back-up
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          from datetime import datetime
+          
+          def lambda_handler(event, context):
+              s3 = boto3.client('s3')
+              bucket_name = os.environ['BUCKET_NAME']
+              
+              timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+              file_content = f"Substack backup created at {timestamp}"
+              
+              s3.put_object(
+                  Bucket=bucket_name,
+                  Key=f"backup_{timestamp}.txt",
+                  Body=file_content
+              )
+              
+              return {
+                  'statusCode': 200,
+                  'body': f'File uploaded to {bucket_name}'
+              }
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref SubstackArticlesBucket
+      Timeout: 900
+
+  WeeklyScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: 'Trigger Lambda every Friday at midnight'
+      ScheduleExpression: 'cron(0 0 ? * FRI *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SubstackBackupLambda.Arn
+          Id: SubstackBackupTarget
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SubstackBackupLambda
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WeeklyScheduleRule.Arn

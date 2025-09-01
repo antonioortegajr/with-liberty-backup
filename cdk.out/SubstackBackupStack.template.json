@@ -1,0 +1,222 @@
+{
+ "Resources": {
+  "substackarticles77BA1856": {
+   "Type": "AWS::S3::Bucket",
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/substack-articles/Resource"
+   }
+  },
+  "substackbackupServiceRoleBFE0D96D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/substack-back-up/ServiceRole/Resource"
+   }
+  },
+  "substackbackupServiceRoleDefaultPolicy1A4D7BBE": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "substackarticles77BA1856",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "substackarticles77BA1856",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "substackbackupServiceRoleDefaultPolicy1A4D7BBE",
+    "Roles": [
+     {
+      "Ref": "substackbackupServiceRoleBFE0D96D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/substack-back-up/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "substackbackupAA265BD7": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "60d61862aa1e0a51db4cee82d2b088cbfd42ee6e5db794640615dc967ff8a12e.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "BUCKET_NAME": {
+       "Ref": "substackarticles77BA1856"
+      }
+     }
+    },
+    "Handler": "lambda_function.lambda_handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "substackbackupServiceRoleBFE0D96D",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.11",
+    "Timeout": 900
+   },
+   "DependsOn": [
+    "substackbackupServiceRoleDefaultPolicy1A4D7BBE",
+    "substackbackupServiceRoleBFE0D96D"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/substack-back-up/Resource",
+    "aws:asset:path": "asset.60d61862aa1e0a51db4cee82d2b088cbfd42ee6e5db794640615dc967ff8a12e",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "WeeklyTrigger4049EA01": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": "cron(0 0 ? * FRI *)",
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "substackbackupAA265BD7",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/WeeklyTrigger/Resource"
+   }
+  },
+  "WeeklyTriggerAllowEventRuleSubstackBackupStacksubstackbackupF5FAAB285AD27C4A": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "substackbackupAA265BD7",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "WeeklyTrigger4049EA01",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/WeeklyTrigger/AllowEventRuleSubstackBackupStacksubstackbackupF5FAAB28"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02LQQrCMBBFz+J+OlaLB1DBdWkPIGMcdWyaQCdRJOTu0tiFq/fgv7/FTV1jvaK3VuY6VFYumPpAZgB66zlpg+kQzcABjje32A8HUs5gabxcCdMpOhPEuzn795anUVTFuwxCI6bOW56HwtZbMZ/SFcugzZlUOSjuZwC/2AXF1MXlFi3nDB2rj5NhKFUf6C7uXvZlyNB+wsO7dYObBnerp4pUU3RBRsbuxy+qXkMl/QAAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}
