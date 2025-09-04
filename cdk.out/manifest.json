@@ -18,7 +18,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/6d1228d31a5d30147aae054f33154ed4c8b3b9d1283a2eef7fef540ee2df0997.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1/19acfc447c64f07839de70b905b3997630279fff6f60d5fe563ff853ac7b4123.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -38,6 +38,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "substackarticles77BA1856"
+          }
+        ],
+        "/SubstackBackupStack/ScraperLayer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ScraperLayerD1BF6F9B"
           }
         ],
         "/SubstackBackupStack/substack-back-up/ServiceRole/Resource": [
