@@ -8,6 +8,26 @@
     "aws:cdk:path": "SubstackBackupStack/substack-articles/Resource"
    }
   },
+  "ScraperLayerD1BF6F9B": {
+   "Type": "AWS::Lambda::LayerVersion",
+   "Properties": {
+    "CompatibleRuntimes": [
+     "python3.11"
+    ],
+    "Content": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
+     },
+     "S3Key": "255e5fbd9b4a5ffb7bfd5ded83deed3fe524e6be349c9a2214c742359a7cd28e.zip"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "SubstackBackupStack/ScraperLayer/Resource",
+    "aws:asset:path": "asset.255e5fbd9b4a5ffb7bfd5ded83deed3fe524e6be349c9a2214c742359a7cd28e",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Content"
+   }
+  },
   "substackbackupServiceRoleBFE0D96D": {
    "Type": "AWS::IAM::Role",
    "Properties": {
@@ -102,7 +122,7 @@
      "S3Bucket": {
       "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
      },
-     "S3Key": "60d61862aa1e0a51db4cee82d2b088cbfd42ee6e5db794640615dc967ff8a12e.zip"
+     "S3Key": "c589fcd33910ffde1c3040f9230d8a47a70193e39ccd668ae272ac0a50f847a8.zip"
     },
     "Environment": {
      "Variables": {
@@ -112,6 +132,12 @@
      }
     },
     "Handler": "lambda_function.lambda_handler",
+    "Layers": [
+     {
+      "Ref": "ScraperLayerD1BF6F9B"
+     }
+    ],
+    "MemorySize": 512,
     "Role": {
      "Fn::GetAtt": [
       "substackbackupServiceRoleBFE0D96D",
@@ -127,7 +153,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "SubstackBackupStack/substack-back-up/Resource",
-    "aws:asset:path": "asset.60d61862aa1e0a51db4cee82d2b088cbfd42ee6e5db794640615dc967ff8a12e",
+    "aws:asset:path": "asset.c589fcd33910ffde1c3040f9230d8a47a70193e39ccd668ae272ac0a50f847a8",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -178,7 +204,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02LQQrCMBBFz+J+OlaLB1DBdWkPIGMcdWyaQCdRJOTu0tiFq/fgv7/FTV1jvaK3VuY6VFYumPpAZgB66zlpg+kQzcABjje32A8HUs5gabxcCdMpOhPEuzn795anUVTFuwxCI6bOW56HwtZbMZ/SFcugzZlUOSjuZwC/2AXF1MXlFi3nDB2rj5NhKFUf6C7uXvZlyNB+wsO7dYObBnerp4pUU3RBRsbuxy+qXkMl/QAAAA=="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02PwW6DMAyGn4W7cenQ7luRdtoBUanXyk1NmxFChZNWKMq7TyEcevo+279k+wP3VYWhKuglpboOpdEXDEdHagB6yTlIjeHg1cAOmt5ulnEg4QhSn0mEneB3AhgaL1fC0PT2lxaeTzyLniz8eKtckqa3797yPGpJkQiaRgzdZDgNVraT0WpZc6tF4CdbJxg6v8W84RhhXX50dNP2Bh3L5GeV55tHqEoyjzthVXxt3+4S88HlY3H3yW6Rdi3e74+Qe7sa9zV+Fn+idTl76/TI2GX+AzoA83JNAQAA"
    },
    "Metadata": {
     "aws:cdk:path": "SubstackBackupStack/CDKMetadata/Default"

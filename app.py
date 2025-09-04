@@ -10,6 +10,7 @@ from aws_cdk import (
     aws_iam as iam,
     Duration
 )
+from aws_cdk import aws_lambda_python_alpha as _lambda_python
 
 class SubstackBackupStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
@@ -18,6 +19,14 @@ class SubstackBackupStack(Stack):
         # S3 bucket
         bucket = s3.Bucket(self, "substack-articles")
 
+        # Lambda Layer
+        layer = _lambda_python.PythonLayerVersion(
+            self,
+            "ScraperLayer",
+            entry=".",
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_11],
+        )
+
         # Lambda function
         lambda_fn = _lambda.Function(
             self, "substack-back-up",
@@ -25,6 +34,8 @@ class SubstackBackupStack(Stack):
             handler="lambda_function.lambda_handler",
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(15),
+            memory_size=512,
+            layers=[layer],
             environment={
                 "BUCKET_NAME": bucket.bucket_name
             }
