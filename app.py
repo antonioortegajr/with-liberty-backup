@@ -44,10 +44,10 @@ class SubstackBackupStack(Stack):
         # Grant S3 permissions
         bucket.grant_write(lambda_fn)
 
-        # Weekly schedule (Fridays at midnight UTC)
+        # Weekly schedule (Sundays at noon UTC)
         rule = events.Rule(
             self, "WeeklyTrigger",
-            schedule=events.Schedule.cron(minute="0", hour="0", week_day="FRI")
+            schedule=events.Schedule.cron(minute="0", hour="12", week_day="SUN")
         )
         rule.add_target(targets.LambdaFunction(lambda_fn))
         
