@@ -16,8 +16,8 @@ class SubstackBackupStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # S3 bucket
-        bucket = s3.Bucket(self, "substack-articles")
+        # Use existing S3 bucket
+        bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "tiny-article-backup")
 
         # Lambda Layer
         layer = _lambda_python.PythonLayerVersion(
@@ -50,6 +50,13 @@ class SubstackBackupStack(Stack):
             schedule=events.Schedule.cron(minute="0", hour="0", week_day="FRI")
         )
         rule.add_target(targets.LambdaFunction(lambda_fn))
+        
+        # Output the website URL
+        cdk.CfnOutput(
+            self, "WebsiteURL",
+            value=f"http://{bucket.bucket_name}.s3-website-{self.region}.amazonaws.com",
+            description="URL of the static website"
+        )
 
 app = cdk.App()
 SubstackBackupStack(app, "SubstackBackupStack", env=cdk.Environment(region="us-east-1"))

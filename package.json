@@ -1,0 +1,16 @@
+{
+  "name": "substack-backup",
+  "version": "1.0.0",
+  "description": "Substack backup and article generation system",
+  "main": "generate-complete.js",
+  "scripts": {
+    "generate": "node generate-complete.js",
+    "generate-and-upload": "UPLOAD_TO_S3=true node generate-complete.js"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1490.0"
+  },
+  "keywords": ["substack", "backup", "articles", "markdown"],
+  "author": "",
+  "license": "MIT"
+}

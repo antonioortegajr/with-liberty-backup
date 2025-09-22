@@ -228,7 +228,7 @@ class BaseSubstackScraper(ABC):
         """
         Iterates over all posts and saves them as markdown and html files
         """
-        essays_data = []
+        self.essays_data = []
         count = 0
         total = num_posts_to_scrape if num_posts_to_scrape != 0 else len(self.post_urls)
         for url in tqdm(self.post_urls, total=total):
@@ -250,13 +250,17 @@ class BaseSubstackScraper(ABC):
                     html_content = self.md_to_html(md)
                     self.save_to_html_file(html_filepath, html_content)
 
-                    essays_data.append({
+                    # Create S3-compatible paths
+                    s3_md_path = f"posts/{os.path.basename(self.md_save_dir)}/{md_filename}"
+                    s3_html_path = f"posts/{os.path.basename(self.html_save_dir)}/{html_filename}"
+
+                    self.essays_data.append({
                         "title": title,
                         "subtitle": subtitle,
                         "like_count": like_count,
                         "date": date,
-                        "file_link": md_filepath,
-                        "html_link": html_filepath
+                        "file_link": s3_md_path,
+                        "html_link": s3_html_path
                     })
                 else:
                     print(f"File already exists: {md_filepath}")
@@ -292,6 +296,7 @@ def start_scraping(base_substack_url, md_save_dir, html_save_dir, num_posts_to_s
         html_save_dir=html_save_dir
     )
     scraper.scrape_posts(num_posts_to_scrape=num_posts_to_scrape)
+    return scraper.essays_data
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Scrape a Substack site.")
