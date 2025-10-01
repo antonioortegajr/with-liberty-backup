@@ -2,7 +2,9 @@ import os
 import boto3
 import json
 import re
+import tempfile
 from datetime import datetime
+from scrape import start_scraping
 
 def extract_metadata_from_content(content, filename):
     """Extract metadata from markdown content using improved logic"""
@@ -82,16 +84,81 @@ def extract_metadata_from_content(content, filename):
         'date': date
     }
 
+def upload_file_to_s3(s3_client, bucket_name, local_file_path, s3_key):
+    """Upload a local file to S3"""
+    try:
+        s3_client.upload_file(local_file_path, bucket_name, s3_key)
+        print(f"✅ Uploaded {s3_key}")
+        return True
+    except Exception as e:
+        print(f"❌ Error uploading {s3_key}: {str(e)}")
+        return False
+
 def lambda_handler(event, context):
     try:
-        print("🚀 Lambda function started - Improved Metadata Extraction")
+        print("🚀 Lambda function started - Substack Scraping + Metadata Extraction")
         
         bucket_name = os.environ.get('BUCKET_NAME', 'tiny-article-backup')
+        substack_url = os.environ.get('SUBSTACK_URL', 'https://heathermedwards.substack.com/')
+        num_posts = int(os.environ.get('NUM_POSTS_TO_SCRAPE', '10'))
+        
         print(f"🪣 S3 Bucket: {bucket_name}")
+        print(f"📰 Substack URL: {substack_url}")
+        print(f"📊 Number of posts to scrape: {num_posts}")
 
         s3 = boto3.client('s3')
         
-        # Find all .md files in the S3 bucket
+        # Create temporary directories for scraping
+        with tempfile.TemporaryDirectory() as temp_dir:
+            md_dir = os.path.join(temp_dir, 'md_files')
+            html_dir = os.path.join(temp_dir, 'html_files')
+            os.makedirs(md_dir, exist_ok=True)
+            os.makedirs(html_dir, exist_ok=True)
+            
+            print("🕷️ Starting Substack scraping...")
+            
+            # Scrape new articles from Substack
+            try:
+                essays_data = start_scraping(
+                    base_substack_url=substack_url,
+                    md_save_dir=md_dir,
+                    html_save_dir=html_dir,
+                    num_posts_to_scrape=num_posts
+                )
+                print(f"✅ Scraped {len(essays_data)} new articles")
+            except Exception as e:
+                print(f"❌ Error during scraping: {str(e)}")
+                essays_data = []
+            
+            # Upload new markdown and HTML files to S3
+            print("📤 Uploading new articles to S3...")
+            uploaded_files = []
+            
+            # Upload markdown files
+            for root, dirs, files in os.walk(md_dir):
+                for file in files:
+                    if file.endswith('.md'):
+                        local_path = os.path.join(root, file)
+                        # Save directly at top level - use just the filename
+                        s3_key = file
+                        
+                        if upload_file_to_s3(s3, bucket_name, local_path, s3_key):
+                            uploaded_files.append(s3_key)
+            
+            # Upload HTML files
+            for root, dirs, files in os.walk(html_dir):
+                for file in files:
+                    if file.endswith('.html'):
+                        local_path = os.path.join(root, file)
+                        # Save directly at top level - use just the filename
+                        s3_key = file
+                        
+                        if upload_file_to_s3(s3, bucket_name, local_path, s3_key):
+                            uploaded_files.append(s3_key)
+            
+            print(f"📤 Uploaded {len(uploaded_files)} new files to S3")
+        
+        # Now process ALL articles (existing + new) to create updated JSON
         print("🔍 Finding all .md files in S3 bucket...")
         
         all_md_files = []
@@ -99,7 +166,7 @@ def lambda_handler(event, context):
         
         # Use paginator to get ALL objects
         paginator = s3.get_paginator('list_objects_v2')
-        pages = paginator.paginate(Bucket=bucket_name, Prefix='posts/')
+        pages = paginator.paginate(Bucket=bucket_name)
         
         for page in pages:
             page_count += 1
@@ -118,7 +185,7 @@ def lambda_handler(event, context):
         root_md_count = 0
         if 'Contents' in root_response:
             for obj in root_response['Contents']:
-                if obj['Key'].endswith('.md') and not obj['Key'].startswith('posts/'):
+                if obj['Key'].endswith('.md'):
                     all_md_files.append(obj['Key'])
                     root_md_count += 1
         
@@ -229,7 +296,7 @@ def lambda_handler(event, context):
         
         return {
             'statusCode': 200,
-            'body': f'Successfully processed {unique_articles} unique articles (skipped {duplicates_skipped} duplicates) with improved metadata extraction and updated JSON files in {bucket_name}'
+            'body': f'Successfully scraped new articles and processed {unique_articles} total articles (skipped {duplicates_skipped} duplicates) with updated JSON files in {bucket_name}'
         }
         
     except Exception as e:

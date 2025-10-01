@@ -13,7 +13,7 @@ from xml.etree import ElementTree as ET
 
 from urllib.parse import urlparse
 
-BASE_SUBSTACK_URL: str = "https://www.thefitzwilliam.com/"  # Substack you want to convert to markdown
+BASE_SUBSTACK_URL: str = os.getenv("SUBSTACK_URL", "https://heathermedwards.substack.com/")  # Substack you want to convert to markdown
 BASE_MD_DIR: str = "substack_md_files"  # Name of the directory we'll save the .md essay files
 BASE_HTML_DIR: str = "substack_html_pages"  # Name of the directory we'll save the .html essay files
 NUM_POSTS_TO_SCRAPE: int = 3  # Set to 0 if you want all posts

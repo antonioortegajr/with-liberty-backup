@@ -19,7 +19,7 @@ class SubstackBackupStack(Stack):
         # Use existing S3 bucket
         bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "tiny-article-backup")
 
-        # Lambda Layer
+        # Lambda Layer for dependencies
         layer = _lambda_python.PythonLayerVersion(
             self,
             "ScraperLayer",
@@ -34,20 +34,22 @@ class SubstackBackupStack(Stack):
             handler="lambda_function.lambda_handler",
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(15),
-            memory_size=512,
+            memory_size=1024,  # Increased memory for scraping
             layers=[layer],
             environment={
-                "BUCKET_NAME": bucket.bucket_name
+                "BUCKET_NAME": bucket.bucket_name,
+                "SUBSTACK_URL": "https://heathermedwards.substack.com/",
+                "NUM_POSTS_TO_SCRAPE": "50"
             }
         )
 
         # Grant S3 permissions
         bucket.grant_write(lambda_fn)
 
-        # Weekly schedule (Sundays at noon UTC)
+        # Daily schedule (every day at noon UTC)
         rule = events.Rule(
-            self, "WeeklyTrigger",
-            schedule=events.Schedule.cron(minute="0", hour="12", week_day="SUN")
+            self, "DailyTrigger",
+            schedule=events.Schedule.cron(minute="0", hour="12")
         )
         rule.add_target(targets.LambdaFunction(lambda_fn))
         

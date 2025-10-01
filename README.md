@@ -2,6 +2,8 @@
 
 A comprehensive system for backing up Substack articles and generating a static website with JSON metadata files.
 
+Read more about this project in the ABOUT.md doc
+
 ## Features
 
 - **Automated Substack Scraping**: Scrapes articles from any Substack publication
