@@ -4,12 +4,14 @@
 This guide will help you deploy the new S3 bucket specifically configured for the `WithLiberty.HeatherMEdwards` subdomain.
 
 ## What's Changed
-- **New S3 Bucket**: `withliberty.heathermedwards.com` (replaces the old `tiny-article-backup` bucket)
+- **New S3 Bucket**: `withliberty.heathermedwards.com` (NEW - for WithLiberty subdomain)
 - **New Lambda Function**: `withliberty-static-upload` (uploads static site files to the WithLiberty subdomain)
 - **Static Website Hosting**: Configured for hosting static websites
 - **Public Access**: Enabled for public read access to serve the website
 - **Custom Domain Ready**: Bucket name is optimized for subdomain usage
-- **Backward Compatibility**: Original Lambda function is preserved for existing functionality
+- **Two Separate Systems**: 
+  - **System 1**: Original scraping system (unchanged) → `tiny-article-backup` bucket
+  - **System 2**: New static site system → `withliberty.heathermedwards.com` bucket
 
 ## Deployment Steps
 
@@ -51,13 +53,14 @@ aws s3 cp static_stie/index.html s3://withliberty.heathermedwards.com/
 
 ### Original Lambda Function
 - **Name**: `substack-back-up-original`
-- **Purpose**: Maintains existing functionality
+- **Purpose**: Scrapes Substack content and uploads to the original bucket
 - **Target Bucket**: `tiny-article-backup`
-- **Schedule**: Daily at 12:00 UTC
+- **Schedule**: Daily at 11:00 UTC
 - **Environment Variables**:
   - `BUCKET_NAME`: `tiny-article-backup`
   - `SUBSTACK_URL`: `https://heathermedwards.substack.com/`
   - `NUM_POSTS_TO_SCRAPE`: `50`
+- **Note**: This function requires the dependencies in the lambda directory but doesn't use Docker layers
 
 ## Bucket Configuration Details
 

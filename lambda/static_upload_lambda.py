@@ -18,12 +18,8 @@ def lambda_handler(event, context):
         s3 = boto3.client('s3')
         
         # Define the static_site directory path
-        # In Lambda, the static_site directory will be at the root level
-        static_site_dir = Path('/opt/static_stie')  # Note: using the actual directory name from the project
-        
-        # If not found in /opt, try relative path (for local testing)
-        if not static_site_dir.exists():
-            static_site_dir = Path('static_stie')  # Note: using the actual directory name from the project
+        # In Lambda, the static_stie directory will be in the same directory as the lambda function
+        static_site_dir = Path('static_stie')  # Note: using the actual directory name from the project
         
         if not static_site_dir.exists():
             print(f"❌ Static site directory not found: {static_site_dir}")
