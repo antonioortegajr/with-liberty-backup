@@ -31,6 +31,14 @@ class SubstackBackupStack(Stack):
             )
         )
 
+        # Lambda Layer for dependencies (for both scraping functions)
+        layer = _lambda_python.PythonLayerVersion(
+            self,
+            "ScraperLayer",
+            entry="lambda",  # Only include lambda directory for dependencies
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_11],
+        )
+
         # Original Lambda function (keeping for backward compatibility)
         # This function handles Substack scraping and uploads to the original bucket
         original_lambda_fn = _lambda.Function(
@@ -40,6 +48,7 @@ class SubstackBackupStack(Stack):
             code=_lambda.Code.from_asset("lambda"),
             timeout=Duration.minutes(15),
             memory_size=1024,  # Increased memory for scraping
+            layers=[layer],
             environment={
                 "BUCKET_NAME": "tiny-article-backup",  # Original bucket
                 "SUBSTACK_URL": "https://heathermedwards.substack.com/",
@@ -47,21 +56,28 @@ class SubstackBackupStack(Stack):
             }
         )
 
-        # New Lambda function for WithLiberty.HeatherMEdwards subdomain - Static Site Upload
+        # New Lambda function for WithLiberty.HeatherMEdwards subdomain - Full Scraping + Static Upload
         withliberty_lambda_fn = _lambda.Function(
             self, "withliberty-static-upload",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="lambda.static_upload_lambda.lambda_handler",
             code=_lambda.Code.from_asset(".", exclude=["*.pyc", "__pycache__", "*.git*", "node_modules", "tests", "*.md", "cdk.out", "*.py", "!lambda/*.py", "!static_stie/**"]),
-            timeout=Duration.minutes(5),  # Shorter timeout for static upload
-            memory_size=512,  # Less memory needed for static upload
+            timeout=Duration.minutes(15),  # Longer timeout for scraping
+            memory_size=1024,  # More memory for scraping
+            layers=[layer],  # Add the scraping dependencies layer
             environment={
-                "BUCKET_NAME": bucket.bucket_name
+                "BUCKET_NAME": bucket.bucket_name,
+                "SUBSTACK_URL": "https://heathermedwards.substack.com/",
+                "NUM_POSTS_TO_SCRAPE": "50"
             }
         )
 
         # Grant S3 permissions
         bucket.grant_write(withliberty_lambda_fn)
+        
+        # Grant read permissions to the original bucket for copying essays-data.json
+        original_bucket = s3.Bucket.from_bucket_name(self, "OriginalBucket", "tiny-article-backup")
+        original_bucket.grant_read(withliberty_lambda_fn)
         
         # Daily schedule for Original Lambda (every day at 11 AM UTC)
         original_rule = events.Rule(
