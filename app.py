@@ -74,6 +74,7 @@ class SubstackBackupStack(Stack):
 
         # Grant S3 permissions
         bucket.grant_write(withliberty_lambda_fn)
+        bucket.grant_read(withliberty_lambda_fn)  # Add read permission for listing files
         
         # Grant read permissions to the original bucket for copying essays-data.json
         original_bucket = s3.Bucket.from_bucket_name(self, "OriginalBucket", "tiny-article-backup")

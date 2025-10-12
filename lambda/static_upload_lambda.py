@@ -153,16 +153,7 @@ def lambda_handler(event, context):
                         if upload_file_to_s3(s3, bucket_name, local_path, s3_key):
                             uploaded_files.append(s3_key)
             
-            # Upload HTML files
-            for root, dirs, files in os.walk(html_dir):
-                for file in files:
-                    if file.endswith('.html'):
-                        local_path = os.path.join(root, file)
-                        # Save directly at top level - use just the filename
-                        s3_key = file
-                        
-                        if upload_file_to_s3(s3, bucket_name, local_path, s3_key):
-                            uploaded_files.append(s3_key)
+            # HTML files are no longer uploaded - only markdown files are needed
             
             print(f"📤 Uploaded {len(uploaded_files)} new files to S3")
         
@@ -223,7 +214,6 @@ def lambda_handler(event, context):
                 
                 # Add file links
                 metadata['file_link'] = md_file
-                metadata['html_link'] = md_file.replace('.md', '.html')
                 
                 essays_data.append(metadata)
                 print(f"✅ Processed: {filename} - {metadata['title']} ({metadata['date']})")
@@ -237,8 +227,7 @@ def lambda_handler(event, context):
                     'subtitle': '',
                     'like_count': '0',
                     'date': 'Date not found',
-                    'file_link': md_file,
-                    'html_link': md_file.replace('.md', '.html')
+                    'file_link': md_file
                 })
         
         # Sort essays by date (newest first)
