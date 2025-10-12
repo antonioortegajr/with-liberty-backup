@@ -217,7 +217,7 @@ async function initializeEssays() {
     } catch (error) {
         console.error('Error initializing essays:', error);
         const essaysContainer = document.getElementById('essays-container');
-        essaysContainer.innerHTML = '<div class="error">Error loading essays. Please try refreshing the page.</div>';
+        essaysContainer.innerHTML = '<div class="error">Error loading articles. Please try refreshing the page.</div>';
         updateArticleCount(0);
     }
 }
