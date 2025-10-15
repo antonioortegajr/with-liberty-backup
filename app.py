@@ -80,6 +80,10 @@ class SubstackBackupStack(Stack):
         original_bucket = s3.Bucket.from_bucket_name(self, "OriginalBucket", "tiny-article-backup")
         original_bucket.grant_read(withliberty_lambda_fn)
         
+        # Note: DNS configuration should be done in Squarespace since heathermedwards.com
+        # is managed there, not in Route 53. Add this CNAME record in Squarespace DNS:
+        # Type: CNAME, Host: withliberty, Points to: withliberty.heathermedwards.com.s3-website-us-east-1.amazonaws.com
+        
         # Daily schedule for Original Lambda (every day at 11 AM UTC)
         original_rule = events.Rule(
             self, "OriginalSubstackTrigger",
@@ -99,6 +103,13 @@ class SubstackBackupStack(Stack):
             self, "WebsiteURL",
             value=f"http://{bucket.bucket_name}.s3-website-{self.region}.amazonaws.com",
             description="URL of the static website for WithLiberty.HeatherMEdwards subdomain"
+        )
+        
+        # Output the subdomain URL
+        cdk.CfnOutput(
+            self, "SubdomainURL",
+            value="http://withliberty.heathermedwards.com",
+            description="Subdomain URL for WithLiberty.HeatherMEdwards"
         )
         
         # Output Lambda function information
