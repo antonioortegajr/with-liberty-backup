@@ -8,6 +8,10 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_iam as iam,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
+    aws_route53 as route53,
+    aws_certificatemanager as acm,
     Duration
 )
 from aws_cdk import aws_lambda_python_alpha as _lambda_python
@@ -80,9 +84,28 @@ class SubstackBackupStack(Stack):
         original_bucket = s3.Bucket.from_bucket_name(self, "OriginalBucket", "tiny-article-backup")
         original_bucket.grant_read(withliberty_lambda_fn)
         
-        # Note: DNS configuration should be done in Squarespace since heathermedwards.com
-        # is managed there, not in Route 53. Add this CNAME record in Squarespace DNS:
-        # Type: CNAME, Host: withliberty, Points to: withliberty.heathermedwards.com.s3-website-us-east-1.amazonaws.com
+        # Get the SSL certificate
+        certificate = acm.Certificate.from_certificate_arn(
+            self, "WithLibertyCertificate",
+            certificate_arn="arn:aws:acm:us-east-1:529123413029:certificate/434d4c9e-7e6f-4569-bbb5-cd2063b656a6"
+        )
+        
+        # CloudFront Distribution for SSL and Performance with custom domain
+        distribution = cloudfront.Distribution(
+            self, "WithLibertyDistribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3Origin(bucket, origin_path=""),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                compress=True
+            ),
+            domain_names=["withliberty.heathermedwards.com"],
+            certificate=certificate
+        )
+        
+        # Note: DNS configuration should be done in Wix since heathermedwards.com
+        # is managed there, not in Route 53. Update your CNAME record in Wix DNS:
+        # Type: CNAME, Host: withliberty, Points to: [CloudFront Distribution Domain from outputs below]
         
         # Daily schedule for Original Lambda (every day at 11 AM UTC)
         original_rule = events.Rule(
@@ -105,11 +128,18 @@ class SubstackBackupStack(Stack):
             description="URL of the static website for WithLiberty.HeatherMEdwards subdomain"
         )
         
-        # Output the subdomain URL
+        # Output the HTTPS subdomain URL
         cdk.CfnOutput(
             self, "SubdomainURL",
-            value="http://withliberty.heathermedwards.com",
-            description="Subdomain URL for WithLiberty.HeatherMEdwards"
+            value="https://withliberty.heathermedwards.com",
+            description="HTTPS Subdomain URL for WithLiberty.HeatherMEdwards (via CloudFront)"
+        )
+        
+        # Output CloudFront distribution domain
+        cdk.CfnOutput(
+            self, "CloudFrontDomain",
+            value=distribution.distribution_domain_name,
+            description="CloudFront Distribution Domain Name"
         )
         
         # Output Lambda function information
@@ -127,7 +157,7 @@ class SubstackBackupStack(Stack):
 
 app = cdk.App()
 SubstackBackupStack(app, "SubstackBackupStack-v2", 
-    env=cdk.Environment(region="us-east-1"),
+    env=cdk.Environment(account="529123413029", region="us-east-1"),
     synthesizer=cdk.DefaultStackSynthesizer(
         qualifier="myapp"
     )
