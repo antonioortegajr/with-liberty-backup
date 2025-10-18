@@ -2,6 +2,102 @@ let showHTML = false; // Default to showing markdown since we're loading from ma
 let essaysData = [];
 let currentArticle = null;
 
+// URL Routing Functions
+function getArticleSlugFromUrl() {
+    const hash = window.location.hash;
+    return hash ? hash.substring(1) : null;
+}
+
+function updateUrlForArticle(slug) {
+    if (slug) {
+        window.history.pushState({ slug }, '', `#${slug}`);
+    } else {
+        window.history.pushState({}, '', window.location.pathname);
+    }
+}
+
+function generateArticleSlug(title) {
+    return title.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
+function handleUrlNavigation() {
+    const slug = getArticleSlugFromUrl();
+    if (slug) {
+        // Find article by slug
+        const article = essaysData.find(essay => 
+            generateArticleSlug(essay.title) === slug
+        );
+        if (article) {
+            loadAndDisplayArticle(article.file_link, slug);
+        } else {
+            // Invalid slug, return to list
+            showEssayList();
+        }
+    } else {
+        showEssayList();
+    }
+}
+
+function getShareableUrl(slug) {
+    return `${window.location.origin}${window.location.pathname}#${slug}`;
+}
+
+// Sharing Functions
+async function shareArticle(slug) {
+    const article = essaysData.find(essay => 
+        generateArticleSlug(essay.title) === slug
+    );
+    
+    if (!article) return;
+    
+    const shareData = {
+        title: article.title,
+        text: article.subtitle,
+        url: getShareableUrl(slug)
+    };
+    
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        try {
+            await navigator.share(shareData);
+        } catch (error) {
+            console.log('Share cancelled or failed:', error);
+        }
+    } else {
+        // Fallback to copy URL
+        copyArticleUrl(getShareableUrl(slug));
+    }
+}
+
+async function copyArticleUrl(url) {
+    try {
+        await navigator.clipboard.writeText(url);
+        // Show feedback
+        const button = document.querySelector('.copy-url-button');
+        if (button) {
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            button.style.backgroundColor = '#28a745';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.backgroundColor = '';
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Failed to copy URL:', error);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+    }
+}
+
 // Simple markdown to HTML converter
 function markdownToHtml(markdown) {
     let html = markdown;
@@ -93,9 +189,10 @@ function populateEssays(data) {
     const essaysContainer = document.getElementById('essays-container');
     const list = sortedData.map((essay, index) => {
         const essayId = essay.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const slug = generateArticleSlug(essay.title);
         return `
         <li id="essay-item-${essayId}" class="essay-item">
-            <a href="#" class="essay-link" data-filename="${essay.file_link}" id="essay-link-${essayId}" aria-describedby="essay-subtitle-${essayId} essay-date-${essayId}">${essay.title}</a>
+            <a href="#" class="essay-link" data-filename="${essay.file_link}" data-slug="${slug}" id="essay-link-${essayId}" aria-describedby="essay-subtitle-${essayId} essay-date-${essayId}">${essay.title}</a>
             <div id="essay-subtitle-${essayId}" class="subtitle">${essay.subtitle}</div>
             <time id="essay-date-${essayId}" class="metadata" datetime="${essay.date}">${essay.date}</time>
         </li>
@@ -107,7 +204,8 @@ function populateEssays(data) {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const filename = e.target.getAttribute('data-filename');
-            loadAndDisplayArticle(filename);
+            const slug = e.target.getAttribute('data-slug');
+            loadAndDisplayArticle(filename, slug);
         });
         
         // Add touch event handling for better mobile experience
@@ -121,7 +219,7 @@ function populateEssays(data) {
     });
 }
 
-async function loadAndDisplayArticle(filename) {
+async function loadAndDisplayArticle(filename, slug = null) {
     try {
         // Show loading message
         const essaysContainer = document.getElementById('essays-container');
@@ -141,8 +239,16 @@ async function loadAndDisplayArticle(filename) {
         // Find the essay data for this file
         const essay = essaysData.find(e => e.file_link === filename);
         
+        // Generate slug if not provided
+        if (!slug) {
+            slug = generateArticleSlug(essay.title);
+        }
+        
+        // Update URL
+        updateUrlForArticle(slug);
+        
         // Display the article
-        displayArticle(essay, htmlContent);
+        displayArticle(essay, htmlContent, slug);
         
     } catch (error) {
         console.error('Error loading article:', error);
@@ -151,7 +257,7 @@ async function loadAndDisplayArticle(filename) {
     }
 }
 
-function displayArticle(essay, htmlContent) {
+function displayArticle(essay, htmlContent, slug) {
     const essaysContainer = document.getElementById('essays-container');
     
     // Create a URL-friendly ID for the article
@@ -164,6 +270,14 @@ function displayArticle(essay, htmlContent) {
                 <h1 id="article-title-${articleId}" class="article-title">${essay.title}</h1>
                 <div id="article-subtitle-${articleId}" class="article-subtitle">${essay.subtitle}</div>
                 <time id="article-date-${articleId}" class="article-metadata" datetime="${essay.date}">${essay.date}</time>
+                <div class="article-actions">
+                    <button class="share-button" onclick="shareArticle('${slug}')" aria-label="Share this article">
+                        📤 Share Article
+                    </button>
+                    <button class="copy-url-button" onclick="copyArticleUrl(getShareableUrl('${slug}'))" aria-label="Copy article URL">
+                        🔗 Copy Link
+                    </button>
+                </div>
             </header>
             <main id="article-content-${articleId}" class="article-content">
                 ${htmlContent}
@@ -176,6 +290,8 @@ function displayArticle(essay, htmlContent) {
 }
 
 function showEssayList() {
+    // Clear URL hash
+    updateUrlForArticle(null);
     populateEssays(essaysData);
     currentArticle = null;
 }
@@ -203,16 +319,18 @@ async function initializeEssays() {
             essay.title !== "Coming Soon"
         );
         
-        // Remove loading message and populate essays
+        // Remove loading message
         if (loadingElement) {
             loadingElement.remove();
         }
         
-        populateEssays(essaysData);
+        // Handle URL navigation
+        handleUrlNavigation();
         
-        // Social media links are handled by HTML anchor tags
-
-
+        // Add browser history support
+        window.addEventListener('popstate', (event) => {
+            handleUrlNavigation();
+        });
         
     } catch (error) {
         console.error('Error initializing articles:', error);
