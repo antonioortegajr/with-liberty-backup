@@ -244,6 +244,17 @@ class BaseSubstackScraper(ABC):
                         total += 1
                         continue
                     title, subtitle, like_count, date, md = self.extract_post_data(soup)
+                    
+                    # Filter out test articles
+                    title_lower = title.lower()
+                    filename_lower = md_filename.lower()
+                    if 'test' in title_lower or 'test' in filename_lower:
+                        print(f"⏭️ Skipping test article: {title} (from {md_filename})")
+                        count += 1
+                        if num_posts_to_scrape != 0 and count == num_posts_to_scrape:
+                            break
+                        continue
+                    
                     self.save_to_file(md_filepath, md)
 
                     # Convert markdown to HTML and save

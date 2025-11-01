@@ -31,7 +31,8 @@ function generateCompleteArticleSystem() {
     const markdownFiles = files.filter(file => 
         file.endsWith('.md') && 
         file !== 'README.md' && 
-        !file.startsWith('.')
+        !file.startsWith('.') &&
+        !file.toLowerCase().includes('test')
     );
     
     console.log(`Found ${markdownFiles.length} markdown files`);
@@ -138,6 +139,14 @@ function generateCompleteArticleSystem() {
         try {
             const content = fs.readFileSync(filename, 'utf8');
             const metadata = extractMetadata(content, filename);
+            
+            // Filter out test articles
+            const titleLower = metadata.title.toLowerCase();
+            if (titleLower.includes('test')) {
+                console.log(`⏭️  Skipping test article: ${metadata.title} (from ${filename})`);
+                continue;
+            }
+            
             essays.push(metadata);
             console.log(`✓ Processed: ${filename}`);
         } catch (error) {

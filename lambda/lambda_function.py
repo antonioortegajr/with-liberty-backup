@@ -138,6 +138,11 @@ def lambda_handler(event, context):
             for root, dirs, files in os.walk(md_dir):
                 for file in files:
                     if file.endswith('.md'):
+                        # Filter out test articles (safety check - shouldn't happen due to scraping filter)
+                        if 'test' in file.lower():
+                            print(f"⏭️ Skipping test article upload: {file}")
+                            continue
+                        
                         local_path = os.path.join(root, file)
                         # Save directly at top level - use just the filename
                         s3_key = file
@@ -149,6 +154,11 @@ def lambda_handler(event, context):
             for root, dirs, files in os.walk(html_dir):
                 for file in files:
                     if file.endswith('.html'):
+                        # Filter out test articles (safety check - shouldn't happen due to scraping filter)
+                        if 'test' in file.lower():
+                            print(f"⏭️ Skipping test article upload: {file}")
+                            continue
+                        
                         local_path = os.path.join(root, file)
                         # Save directly at top level - use just the filename
                         s3_key = file
@@ -223,6 +233,11 @@ def lambda_handler(event, context):
                     print(f"⏭️ Skipping duplicate title: {metadata['title']} (from {filename})")
                     continue
                 
+                # Filter out test articles
+                if 'test' in title_lower or 'test' in filename.lower():
+                    print(f"⏭️ Skipping test article: {metadata['title']} (from {filename})")
+                    continue
+                
                 processed_titles.add(title_lower)
                 
                 # Add file links
@@ -234,10 +249,19 @@ def lambda_handler(event, context):
                 
             except Exception as e:
                 print(f"❌ Error processing {md_file}: {str(e)}")
-                # Add a basic entry even if processing fails
+                # Add a basic entry even if processing fails, but skip test articles
                 filename = os.path.basename(md_file)
+                if 'test' in filename.lower():
+                    print(f"⏭️ Skipping test article (error case): {filename}")
+                    continue
+                
+                title = filename.replace('.md', '').replace('-', ' ').title()
+                if 'test' in title.lower():
+                    print(f"⏭️ Skipping test article (error case): {title}")
+                    continue
+                
                 essays_data.append({
-                    'title': filename.replace('.md', '').replace('-', ' ').title(),
+                    'title': title,
                     'subtitle': '',
                     'like_count': '0',
                     'date': 'Date not found',

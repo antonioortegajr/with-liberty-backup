@@ -146,6 +146,11 @@ def lambda_handler(event, context):
             for root, dirs, files in os.walk(md_dir):
                 for file in files:
                     if file.endswith('.md'):
+                        # Filter out test articles (safety check - shouldn't happen due to scraping filter)
+                        if 'test' in file.lower():
+                            print(f"⏭️ Skipping test article upload: {file}")
+                            continue
+                        
                         local_path = os.path.join(root, file)
                         # Save directly at top level - use just the filename
                         s3_key = file

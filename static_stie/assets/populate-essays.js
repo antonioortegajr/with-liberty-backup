@@ -314,10 +314,12 @@ async function initializeEssays() {
         essaysData = await response.json();
         
         // Filter out unwanted articles
-        essaysData = essaysData.filter(essay => 
-            essay.title !== "Page not found" && 
-            essay.title !== "Coming Soon"
-        );
+        essaysData = essaysData.filter(essay => {
+            const titleLower = essay.title.toLowerCase();
+            return essay.title !== "Page not found" && 
+                   essay.title !== "Coming Soon" &&
+                   !titleLower.includes("test");
+        });
         
         // Remove loading message
         if (loadingElement) {
