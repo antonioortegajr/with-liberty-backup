@@ -47,6 +47,8 @@ The ongoing back up does not use the logged in scrape.
 
 This system works well and has quickly moved into the features phase. I do think this repo could be easly adapted for other people use.
 
+** Every click is friction - minimize the number of clicks to get from one place to the next
+
 
 
 
