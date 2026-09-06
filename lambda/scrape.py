@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import List, Optional, Tuple
 
 from bs4 import BeautifulSoup
@@ -192,6 +193,63 @@ class BaseSubstackScraper(ABC):
 
         return metadata + content
 
+    @staticmethod
+    def format_date(raw_date: str) -> str:
+        """
+        Normalizes an ISO 8601 timestamp to the "Feb 19, 2025" format used in the
+        markdown metadata block. Returns "" if the value can't be parsed.
+        """
+        if not raw_date:
+            return ""
+
+        cleaned = raw_date.strip().replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(cleaned).strftime("%b %d, %Y")
+        except ValueError:
+            return ""
+
+    @staticmethod
+    def extract_post_date(soup: BeautifulSoup) -> str:
+        """
+        Gets the publication date from a post page.
+
+        Substack renders the visible date inside a div whose class names are
+        hashed and change without notice, so read the stable machine-readable
+        sources first and only fall back to that markup.
+        """
+        # JSON-LD metadata
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.string or "")
+            except (TypeError, ValueError):
+                continue
+
+            entries = data if isinstance(data, list) else [data]
+            for entry in entries:
+                if isinstance(entry, dict):
+                    date = BaseSubstackScraper.format_date(entry.get("datePublished", ""))
+                    if date:
+                        return date
+
+        # <time datetime="..."> element
+        time_element = soup.find("time", attrs={"datetime": True})
+        if time_element:
+            date = BaseSubstackScraper.format_date(time_element["datetime"])
+            if date:
+                return date
+            if time_element.text.strip():
+                return time_element.text.strip()
+
+        # Legacy hashed-class markup
+        date_element = soup.find(
+            "div",
+            class_="pencraft pc-reset color-pub-secondary-text-hGQ02T line-height-20-t4M0El font-meta-MWBumP size-11-NuY2Zx weight-medium-fw81nC transform-uppercase-yKDgcq reset-IxiVJZ meta-EgzBVA"
+        )
+        if date_element and date_element.text.strip():
+            return date_element.text.strip()
+
+        return "Date not found"
+
     def extract_post_data(self, soup: BeautifulSoup) -> Tuple[str, str, str, str, str]:
         """
         Converts substack post soup to markdown, returns metadata and content
@@ -201,12 +259,8 @@ class BaseSubstackScraper(ABC):
         subtitle_element = soup.select_one("h3.subtitle")
         subtitle = subtitle_element.text.strip() if subtitle_element else ""
 
-        
-        date_element = soup.find(
-            "div",
-            class_="pencraft pc-reset color-pub-secondary-text-hGQ02T line-height-20-t4M0El font-meta-MWBumP size-11-NuY2Zx weight-medium-fw81nC transform-uppercase-yKDgcq reset-IxiVJZ meta-EgzBVA"
-        )
-        date = date_element.text.strip() if date_element else "Date not found"
+
+        date = self.extract_post_date(soup)
 
         like_count_element = soup.select_one("a.post-ufi-button .label")
         like_count = (
