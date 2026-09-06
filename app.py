@@ -83,6 +83,10 @@ class SubstackBackupStack(Stack):
         # Grant read permissions to the original bucket for copying essays-data.json
         original_bucket = s3.Bucket.from_bucket_name(self, "OriginalBucket", "tiny-article-backup")
         original_bucket.grant_read(withliberty_lambda_fn)
+
+        # The original function scrapes into this bucket and lists it to rebuild
+        # the JSON metadata, so it needs read and write, not just read
+        original_bucket.grant_read_write(original_lambda_fn)
         
         # Get the SSL certificate
         certificate = acm.Certificate.from_certificate_arn(
