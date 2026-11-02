@@ -27,6 +27,12 @@ class SubstackBackupStack(Stack):
             website_index_document="index.html",
             website_error_document="index.html",
             public_read_access=True,
+            versioned=True,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    noncurrent_version_expiration=Duration.days(90)
+                )
+            ],
             block_public_access=s3.BlockPublicAccess(
                 block_public_acls=False,
                 block_public_policy=False,
