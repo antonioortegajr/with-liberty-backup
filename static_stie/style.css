@@ -84,6 +84,17 @@ h1 {
     flex-wrap: wrap;
 }
 
+.site-tagline {
+    text-align: center;
+    font-size: 14px;
+    color: #555;
+    margin: 8px 0;
+}
+
+.site-tagline a {
+    color: #2573da;
+}
+
 .social-icon {
     display: flex;
     align-items: center;
