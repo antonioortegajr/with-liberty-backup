@@ -2,8 +2,8 @@ body {
     font-family: 'Avenir Next', Avenir, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: rgba(249, 245, 228, 0.51);
-    color: #333;
+    background-color: #fff;
+    color: #222;
     line-height: 1.6;
 }
 
@@ -37,7 +37,7 @@ h1 {
     max-width: 800px;
     margin: 20px auto;
     padding: 20px;
-    background: rgba(255, 255, 250);
+    background: #fff;
     box-shadow: 0 2px 4px 0 rgba(0,0,0,.2);
 }
 
@@ -129,7 +129,7 @@ h1 {
 }
 
 #home-icon:hover {
-    background-color: #4a90e2;
+    background-color: #2573da;
 }
 
 #medium-icon:hover {
@@ -145,7 +145,7 @@ h1 {
 }
 
 button {
-    background-color: #4a90e2;
+    background-color: #2573da;
     border: none;
     color: white;
     padding: 10px 20px;
@@ -166,7 +166,7 @@ button {
 }
 
 button:hover {
-    background-color: #357abd;
+    background-color: #1c5bb0;
 }
 
 /* Article View Styles */
@@ -222,7 +222,7 @@ button:hover {
 }
 
 .share-button, .copy-url-button {
-    background-color: #007bff;
+    background-color: #2573da;
     border: none;
     color: white;
     padding: 8px 16px;
@@ -245,7 +245,7 @@ button:hover {
 }
 
 .share-button:hover, .copy-url-button:hover {
-    background-color: #0056b3;
+    background-color: #1c5bb0;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -297,12 +297,12 @@ button:hover {
 }
 
 .article-content a {
-    color: #007bff;
+    color: #2573da;
     text-decoration: underline;
 }
 
 .article-content a:hover {
-    color: #0056b3;
+    color: #1c5bb0;
 }
 
 .article-content img {
@@ -340,7 +340,7 @@ button:hover {
 }
 
 .essay-link:hover {
-    color: #007bff;
+    color: #2573da;
     text-decoration: underline;
 }
 
