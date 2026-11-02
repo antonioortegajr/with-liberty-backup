@@ -2,17 +2,55 @@ let showHTML = false; // Default to showing markdown since we're loading from ma
 let essaysData = [];
 let currentArticle = null;
 
+const ESSAYS_PER_PAGE = 20;
+
 // URL Routing Functions
 function getArticleSlugFromUrl() {
     const hash = window.location.hash;
     return hash ? hash.substring(1) : null;
 }
 
-function updateUrlForArticle(slug) {
-    if (slug) {
-        window.history.pushState({ slug }, '', `#${slug}`);
+function getRequestedPage() {
+    const rawPage = new URLSearchParams(window.location.search).get('page');
+    if (rawPage === null || !/^\d+$/.test(rawPage)) {
+        return 1;
+    }
+    const page = parseInt(rawPage, 10);
+    return page > 0 ? page : 1;
+}
+
+function normalizePage(page, totalPages) {
+    if (!Number.isInteger(page) || page < 1 || page > totalPages) {
+        return 1;
+    }
+    return page;
+}
+
+function getTotalPages(list) {
+    return Math.max(1, Math.ceil(list.length / ESSAYS_PER_PAGE));
+}
+
+function buildListUrl() {
+    return `${window.location.pathname}${window.location.search}`;
+}
+
+function buildArticleUrl(slug) {
+    return `${buildListUrl()}#${slug}`;
+}
+
+function buildPageUrl(page) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', String(page));
+    return `${window.location.pathname}?${params.toString()}`;
+}
+
+function updateUrlForArticle(slug, replace = false) {
+    const url = slug ? buildArticleUrl(slug) : buildListUrl();
+    const state = slug ? { slug } : {};
+    if (replace) {
+        window.history.replaceState(state, '', url);
     } else {
-        window.history.pushState({}, '', window.location.pathname);
+        window.history.pushState(state, '', url);
     }
 }
 
@@ -24,7 +62,8 @@ function generateArticleSlug(title) {
         .replace(/^-|-$/g, '');
 }
 
-function handleUrlNavigation() {
+function handleUrlNavigation(options = {}) {
+    const { updateHistory = true } = options;
     const slug = getArticleSlugFromUrl();
     if (slug) {
         // Find article by slug
@@ -32,13 +71,13 @@ function handleUrlNavigation() {
             generateArticleSlug(essay.title) === slug
         );
         if (article) {
-            loadAndDisplayArticle(article.file_link, slug);
+            loadAndDisplayArticle(article.file_link, slug, { updateHistory });
         } else {
             // Invalid slug, return to list
-            showEssayList();
+            showEssayList({ updateHistory });
         }
     } else {
-        showEssayList();
+        showEssayList({ updateHistory });
     }
 }
 
@@ -179,15 +218,58 @@ function updateArticleCount(count) {
 
 
 
-function populateEssays(data) {
-    // Sort essays by date (most recent first)
-    const sortedData = sortEssaysByDate([...data], false);
-    
-    // Update article count in footer
-    updateArticleCount(sortedData.length);
-    
+function getPageNumbers(currentPage, totalPages) {
+    const pages = [1];
+    for (let page = currentPage - 1; page <= currentPage + 1; page++) {
+        if (page > 1 && page < totalPages) {
+            pages.push(page);
+        }
+    }
+    if (totalPages > 1) {
+        pages.push(totalPages);
+    }
+    return [...new Set(pages)].sort((a, b) => a - b);
+}
+
+function renderPagination(totalPages, currentPage) {
+    const prev = currentPage > 1
+        ? `<a class="pagination-link pagination-prev" href="${buildPageUrl(currentPage - 1)}" data-page="${currentPage - 1}" rel="prev">← Prev</a>`
+        : '<span class="pagination-link pagination-prev is-disabled" aria-disabled="true">← Prev</span>';
+    const next = currentPage < totalPages
+        ? `<a class="pagination-link pagination-next" href="${buildPageUrl(currentPage + 1)}" data-page="${currentPage + 1}" rel="next">Next →</a>`
+        : '<span class="pagination-link pagination-next is-disabled" aria-disabled="true">Next →</span>';
+
+    const pageNumbers = getPageNumbers(currentPage, totalPages);
+    const pageItems = [];
+    let previousPage = null;
+
+    pageNumbers.forEach(page => {
+        if (previousPage !== null && page - previousPage > 1) {
+            pageItems.push('<span class="pagination-ellipsis" aria-hidden="true">…</span>');
+        }
+        if (page === currentPage) {
+            pageItems.push(`<span class="pagination-link is-current" aria-current="page">${page}</span>`);
+        } else {
+            pageItems.push(`<a class="pagination-link" href="${buildPageUrl(page)}" data-page="${page}" aria-label="Page ${page}">${page}</a>`);
+        }
+        previousPage = page;
+    });
+
+    return `<nav class="pagination" aria-label="Pagination">${prev}${pageItems.join('')}${next}</nav>`;
+}
+
+function renderPage(list, page) {
     const essaysContainer = document.getElementById('essays-container');
-    const list = sortedData.map((essay, index) => {
+    if (!essaysContainer) {
+        return;
+    }
+
+    const totalPages = getTotalPages(list);
+    const currentPage = normalizePage(page, totalPages);
+    const start = (currentPage - 1) * ESSAYS_PER_PAGE;
+    const pageItems = list.slice(start, start + ESSAYS_PER_PAGE);
+
+    const listItems = pageItems.map((essay) => {
         const essayId = essay.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const slug = generateArticleSlug(essay.title);
         return `
@@ -197,29 +279,69 @@ function populateEssays(data) {
             <time id="essay-date-${essayId}" class="metadata" datetime="${essay.date}">${essay.date}</time>
         </li>
     `}).join('');
-    essaysContainer.innerHTML = `<ul id="essays-list" class="essays-list">${list}</ul>`;
-    
+
+    const pagination = totalPages > 1 ? renderPagination(totalPages, currentPage) : '';
+    essaysContainer.innerHTML = `<ul id="essays-list" class="essays-list">${listItems}</ul>${pagination}`;
+
     // Add click handlers for essay links
     document.querySelectorAll('.essay-link').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
-            const filename = e.target.getAttribute('data-filename');
-            const slug = e.target.getAttribute('data-slug');
+            const filename = link.getAttribute('data-filename');
+            const slug = link.getAttribute('data-slug');
             loadAndDisplayArticle(filename, slug);
         });
         
         // Add touch event handling for better mobile experience
         link.addEventListener('touchstart', (e) => {
-            e.target.style.opacity = '0.7';
+            e.currentTarget.style.opacity = '0.7';
         });
         
         link.addEventListener('touchend', (e) => {
-            e.target.style.opacity = '1';
+            e.currentTarget.style.opacity = '1';
         });
     });
+
+    const paginationNav = essaysContainer.querySelector('.pagination');
+    if (paginationNav) {
+        paginationNav.addEventListener('click', (e) => {
+            const link = e.target.closest('a[data-page]');
+            if (!link) {
+                return;
+            }
+            e.preventDefault();
+            navigateToPage(parseInt(link.getAttribute('data-page'), 10));
+        });
+    }
 }
 
-async function loadAndDisplayArticle(filename, slug = null) {
+function navigateToPage(page) {
+    const totalPages = getTotalPages(essaysData);
+    const targetPage = normalizePage(page, totalPages);
+    window.history.pushState({ page: targetPage }, '', buildPageUrl(targetPage));
+    renderPage(essaysData, targetPage);
+    scrollToEssaysTop();
+}
+
+function scrollToEssaysTop() {
+    const essaysContainer = document.getElementById('essays-container');
+    if (essaysContainer) {
+        essaysContainer.scrollIntoView({ block: 'start' });
+    }
+}
+
+function populateEssays(data) {
+    // Sort essays by date (most recent first)
+    const sortedData = sortEssaysByDate([...data], false);
+    
+    // Update article count in footer
+    updateArticleCount(sortedData.length);
+    
+    renderPage(sortedData, getRequestedPage());
+}
+
+async function loadAndDisplayArticle(filename, slug = null, options = {}) {
+    const { updateHistory = true } = options;
     try {
         // Show loading message
         const essaysContainer = document.getElementById('essays-container');
@@ -245,7 +367,9 @@ async function loadAndDisplayArticle(filename, slug = null) {
         }
         
         // Update URL
-        updateUrlForArticle(slug);
+        if (updateHistory) {
+            updateUrlForArticle(slug);
+        }
         
         // Display the article
         displayArticle(essay, htmlContent, slug);
@@ -289,9 +413,12 @@ function displayArticle(essay, htmlContent, slug) {
     currentArticle = essay;
 }
 
-function showEssayList() {
-    // Clear URL hash
-    updateUrlForArticle(null);
+function showEssayList(options = {}) {
+    const { updateHistory = true } = options;
+    // Clear URL hash while keeping the current page in the query string
+    if (updateHistory) {
+        updateUrlForArticle(null);
+    }
     populateEssays(essaysData);
     currentArticle = null;
 }
@@ -320,6 +447,9 @@ async function initializeEssays() {
                    essay.title !== "Coming Soon" &&
                    !titleLower.includes("test");
         });
+
+        // Sort essays once so pagination and article lookups share the same order
+        essaysData = sortEssaysByDate(essaysData, false);
         
         // Remove loading message
         if (loadingElement) {
@@ -327,11 +457,11 @@ async function initializeEssays() {
         }
         
         // Handle URL navigation
-        handleUrlNavigation();
+        handleUrlNavigation({ updateHistory: false });
         
         // Add browser history support
-        window.addEventListener('popstate', (event) => {
-            handleUrlNavigation();
+        window.addEventListener('popstate', () => {
+            handleUrlNavigation({ updateHistory: false });
         });
         
     } catch (error) {
