@@ -1,8 +1,12 @@
 let showHTML = false; // Default to showing markdown since we're loading from markdown files
 let essaysData = [];
 let currentArticle = null;
+let activeSearchQuery = '';
+let filteredEssays = [];
+let searchDebounceTimer = null;
 
 const ESSAYS_PER_PAGE = 20;
+const SEARCH_DEBOUNCE_MS = 200;
 
 // URL Routing Functions
 function getArticleSlugFromUrl() {
@@ -17,6 +21,43 @@ function getRequestedPage() {
     }
     const page = parseInt(rawPage, 10);
     return page > 0 ? page : 1;
+}
+
+function getSearchQueryFromUrl() {
+    return (new URLSearchParams(window.location.search).get('q') || '').trim();
+}
+
+function syncSearchStateFromUrl() {
+    activeSearchQuery = getSearchQueryFromUrl();
+    const searchInput = document.getElementById('essay-search');
+    if (searchInput) {
+        searchInput.value = activeSearchQuery;
+    }
+}
+
+function normalizeSearchText(text) {
+    return String(text || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035'`]/g, '')
+        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036"]/g, '');
+}
+
+function getSearchTerms(query) {
+    return normalizeSearchText(query).split(/\s+/).filter(Boolean);
+}
+
+function filterEssaysByQuery(list, query) {
+    const terms = getSearchTerms(query);
+    if (terms.length === 0) {
+        return list;
+    }
+
+    return list.filter(essay => {
+        const searchableText = normalizeSearchText(`${essay.title} ${essay.subtitle}`);
+        return terms.every(term => searchableText.includes(term));
+    });
 }
 
 function normalizePage(page, totalPages) {
@@ -44,6 +85,25 @@ function buildPageUrl(page) {
     return `${window.location.pathname}?${params.toString()}`;
 }
 
+function buildSearchUrl(query, page) {
+    const params = new URLSearchParams(window.location.search);
+
+    if (query) {
+        params.set('q', query);
+        params.set('page', String(page));
+    } else {
+        params.delete('q');
+        if (page > 1) {
+            params.set('page', String(page));
+        } else {
+            params.delete('page');
+        }
+    }
+
+    const search = params.toString();
+    return `${window.location.pathname}${search ? `?${search}` : ''}`;
+}
+
 function updateUrlForArticle(slug, replace = false) {
     const url = slug ? buildArticleUrl(slug) : buildListUrl();
     const state = slug ? { slug } : {};
@@ -64,6 +124,7 @@ function generateArticleSlug(title) {
 
 function handleUrlNavigation(options = {}) {
     const { updateHistory = true } = options;
+    syncSearchStateFromUrl();
     const slug = getArticleSlugFromUrl();
     if (slug) {
         // Find article by slug
@@ -216,6 +277,35 @@ function updateArticleCount(count) {
     }
 }
 
+function updateSearchStatus(matchCount, query) {
+    const statusElement = document.getElementById('search-status');
+    if (!statusElement) {
+        return;
+    }
+
+    if (!query) {
+        statusElement.hidden = true;
+        statusElement.textContent = '';
+        return;
+    }
+
+    statusElement.hidden = false;
+    if (matchCount === 0) {
+        statusElement.textContent = `No essays match “${query}”`;
+    } else if (matchCount === 1) {
+        statusElement.textContent = `1 essay matches “${query}”`;
+    } else {
+        statusElement.textContent = `${matchCount} essays match “${query}”`;
+    }
+}
+
+function hideSearchStatus() {
+    const statusElement = document.getElementById('search-status');
+    if (statusElement) {
+        statusElement.hidden = true;
+    }
+}
+
 
 
 function getPageNumbers(currentPage, totalPages) {
@@ -316,10 +406,10 @@ function renderPage(list, page) {
 }
 
 function navigateToPage(page) {
-    const totalPages = getTotalPages(essaysData);
+    const totalPages = getTotalPages(filteredEssays);
     const targetPage = normalizePage(page, totalPages);
     window.history.pushState({ page: targetPage }, '', buildPageUrl(targetPage));
-    renderPage(essaysData, targetPage);
+    renderPage(filteredEssays, targetPage);
     scrollToEssaysTop();
 }
 
@@ -337,12 +427,46 @@ function populateEssays(data) {
     // Update article count in footer
     updateArticleCount(sortedData.length);
     
-    renderPage(sortedData, getRequestedPage());
+    filteredEssays = filterEssaysByQuery(sortedData, activeSearchQuery);
+    renderPage(filteredEssays, getRequestedPage());
+    updateSearchStatus(filteredEssays.length, activeSearchQuery);
+}
+
+function applySearch(query) {
+    activeSearchQuery = query.trim();
+    filteredEssays = filterEssaysByQuery(essaysData, activeSearchQuery);
+    currentArticle = null;
+
+    window.history.replaceState({}, '', buildSearchUrl(activeSearchQuery, 1));
+    renderPage(filteredEssays, 1);
+    updateSearchStatus(filteredEssays.length, activeSearchQuery);
+}
+
+function handleSearchInput() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        const searchInput = document.getElementById('essay-search');
+        applySearch(searchInput ? searchInput.value : '');
+    }, SEARCH_DEBOUNCE_MS);
+}
+
+function initializeSearchControls() {
+    syncSearchStateFromUrl();
+
+    const searchInput = document.getElementById('essay-search');
+    if (!searchInput) {
+        return;
+    }
+
+    searchInput.addEventListener('input', handleSearchInput);
+    searchInput.addEventListener('search', handleSearchInput);
 }
 
 async function loadAndDisplayArticle(filename, slug = null, options = {}) {
     const { updateHistory = true } = options;
     try {
+        hideSearchStatus();
+
         // Show loading message
         const essaysContainer = document.getElementById('essays-container');
         essaysContainer.innerHTML = '<div id="loading">Loading article...</div>';
@@ -410,6 +534,7 @@ function displayArticle(essay, htmlContent, slug) {
     `;
     
     essaysContainer.innerHTML = articleHtml;
+    hideSearchStatus();
     currentArticle = essay;
 }
 
@@ -426,6 +551,8 @@ function showEssayList(options = {}) {
 // Main initialization function
 async function initializeEssays() {
     try {
+        initializeSearchControls();
+
         // Show loading message
         const loadingElement = document.getElementById('loading');
         if (loadingElement) {
