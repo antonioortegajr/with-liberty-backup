@@ -1,0 +1,103 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'cdk.json'
+      - 'requirements.txt'
+      - 'lambda/**'
+      - 'static_stie/**'
+      - 'tests/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk@2.1029.2
+
+      - name: Compile Python
+        run: python -m py_compile app.py lambda/lambda_function.py lambda/static_upload_lambda.py
+
+      - name: Run unit tests
+        run: python -m unittest tests/test_subtitle_parsing.py
+
+      - name: Check static site JS
+        run: node --check static_stie/assets/populate-essays.js
+
+      - name: CDK synth
+        run: cdk synth --quiet
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk@2.1029.2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::529123413029:role/with-liberty-backup-github-deploy
+          aws-region: us-east-1
+
+      - name: CDK deploy
+        run: cdk deploy SubstackBackupStack-v2 --require-approval never
+
+      - name: Invoke static upload Lambda
+        run: |
+          FUNC_NAME=$(aws cloudformation describe-stack-resource --stack-name SubstackBackupStack-v2 --logical-resource-id withlibertystaticupload046D243F --query StackResourceDetail.PhysicalResourceId --output text)
+          aws lambda invoke --function-name "$FUNC_NAME" out.json
+          cat out.json
+          if grep -q '"FunctionError"' out.json; then
+            echo "Lambda function returned an error"
+            exit 1
+          fi

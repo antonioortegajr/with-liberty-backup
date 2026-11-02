@@ -98,6 +98,23 @@ aws s3 ls s3://withliberty.heathermedwards.com/
 curl http://withliberty.heathermedwards.com.s3-website-us-east-1.amazonaws.com
 ```
 
+## GitHub Actions Deployment
+
+### One-time setup
+Run the following locally by the owner to create the GitHub OIDC deploy role:
+```bash
+cdk deploy WithLibertyGitHubDeployRole
+```
+
+### Automatic deployment
+After the role is created, merges to `main` will deploy automatically via GitHub Actions.
+
+### Manual deployment
+You can also run the deploy workflow manually from the Actions tab in GitHub using "Run workflow".
+
+### Permissions
+The GitHub deploy role (`with-liberty-backup-github-deploy`) can only be used from the `main` branch of `antonioortegajr/with-liberty-backup`.
+
 ## Next Steps
 1. Deploy the stack using `cdk deploy`
 2. Test the website URL
