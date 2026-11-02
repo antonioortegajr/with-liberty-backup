@@ -74,6 +74,16 @@ h1 {
     font-style: normal;
 }
 
+.site-headshot {
+    display: block;
+    margin: 20px auto 0;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: top;
+}
+
 #social-links {
     display: flex;
     justify-content: center;
