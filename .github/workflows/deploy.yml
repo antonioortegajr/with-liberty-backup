@@ -94,10 +94,18 @@ jobs:
 
       - name: Invoke static upload Lambda
         run: |
+          set -euo pipefail
           FUNC_NAME=$(aws cloudformation describe-stack-resource --stack-name SubstackBackupStack-v2 --logical-resource-id withlibertystaticupload046D243F --query StackResourceDetail.PhysicalResourceId --output text)
-          aws lambda invoke --function-name "$FUNC_NAME" out.json
+          FUNC_ERR=$(aws lambda invoke --function-name "$FUNC_NAME" --cli-read-timeout 900 --query FunctionError --output text out.json)
           cat out.json
-          if grep -q '"FunctionError"' out.json; then
-            echo "Lambda function returned an error"
+          if [ "$FUNC_ERR" != "None" ] && [ -n "$FUNC_ERR" ]; then
+            echo "Lambda function returned an error: $FUNC_ERR"
             exit 1
           fi
+          python3 -c 'import json, sys
+          with open("out.json") as f:
+              payload = json.load(f)
+          status = payload.get("statusCode")
+          if status != 200:
+              print(f"Lambda returned statusCode {status}: {payload}")
+              sys.exit(1)'
