@@ -299,7 +299,8 @@ def lambda_handler(event, context):
             Bucket=bucket_name,
             Key='essays-data.json',
             Body=essays_json,
-            ContentType='application/json'
+            ContentType='application/json',
+            CacheControl='max-age=60'
         )
         
         # Upload file-list.json
@@ -309,7 +310,8 @@ def lambda_handler(event, context):
             Bucket=bucket_name,
             Key='file-list.json',
             Body=file_list_json,
-            ContentType='application/json'
+            ContentType='application/json',
+            CacheControl='max-age=60'
         )
         
         unique_articles = len(essays_data)

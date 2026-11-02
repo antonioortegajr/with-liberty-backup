@@ -265,7 +265,8 @@ def lambda_handler(event, context):
             Bucket=bucket_name,
             Key='essays-data.json',
             Body=essays_json,
-            ContentType='application/json'
+            ContentType='application/json',
+            CacheControl='max-age=60'
         )
         
         # Upload file-list.json
@@ -275,7 +276,8 @@ def lambda_handler(event, context):
             Bucket=bucket_name,
             Key='file-list.json',
             Body=file_list_json,
-            ContentType='application/json'
+            ContentType='application/json',
+            CacheControl='max-age=60'
         )
         
         # Upload static site files
@@ -304,7 +306,7 @@ def lambda_handler(event, context):
                         local_file_path,
                         bucket_name,
                         s3_key,
-                        ExtraArgs={'ContentType': content_type}
+                        ExtraArgs={'ContentType': content_type, 'CacheControl': 'max-age=300'}
                     )
                     static_files_uploaded.append(s3_key)
                     print(f"✅ Uploaded static file: {s3_key}")
