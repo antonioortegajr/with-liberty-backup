@@ -12,9 +12,63 @@ from aws_cdk import (
     aws_cloudfront_origins as origins,
     aws_route53 as route53,
     aws_certificatemanager as acm,
-    Duration
+    Duration,
+    CfnOutput
 )
 from aws_cdk import aws_lambda_python_alpha as _lambda_python
+
+
+class GitHubDeployRoleStack(Stack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        provider = iam.OpenIdConnectProvider.from_open_id_connect_provider_arn(
+            self,
+            "GitHubOidcProvider",
+            "arn:aws:iam::529123413029:oidc-provider/token.actions.githubusercontent.com",
+        )
+
+        role = iam.Role(
+            self,
+            "GitHubDeployRole",
+            role_name="with-liberty-backup-github-deploy",
+            max_session_duration=Duration.hours(1),
+            assumed_by=iam.WebIdentityPrincipal(
+                provider.open_id_connect_provider_arn,
+                conditions={
+                    "StringEquals": {
+                        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+                        "token.actions.githubusercontent.com:sub": "repo:antonioortegajr/with-liberty-backup:ref:refs/heads/main",
+                    }
+                },
+            ),
+        )
+
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["sts:AssumeRole"],
+                resources=["arn:aws:iam::529123413029:role/cdk-myapp-*"],
+            )
+        )
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["lambda:InvokeFunction"],
+                resources=["arn:aws:lambda:us-east-1:529123413029:function:SubstackBackupStack-v2-withlibertystaticupload*"],
+            )
+        )
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["cloudformation:DescribeStackResource"],
+                resources=["arn:aws:cloudformation:us-east-1:529123413029:stack/SubstackBackupStack-v2/*"],
+            )
+        )
+
+        CfnOutput(
+            self,
+            "GitHubDeployRoleArn",
+            value=role.role_arn,
+        )
+
 
 class SubstackBackupStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
@@ -166,10 +220,16 @@ class SubstackBackupStack(Stack):
         )
 
 app = cdk.App()
-SubstackBackupStack(app, "SubstackBackupStack-v2", 
+SubstackBackupStack(
+    app,
+    "SubstackBackupStack-v2",
     env=cdk.Environment(account="529123413029", region="us-east-1"),
-    synthesizer=cdk.DefaultStackSynthesizer(
-        qualifier="myapp"
-    )
+    synthesizer=cdk.DefaultStackSynthesizer(qualifier="myapp"),
+)
+GitHubDeployRoleStack(
+    app,
+    "WithLibertyGitHubDeployRole",
+    env=cdk.Environment(account="529123413029", region="us-east-1"),
+    synthesizer=cdk.DefaultStackSynthesizer(qualifier="myapp"),
 )
 app.synth()

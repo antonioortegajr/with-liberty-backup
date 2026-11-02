@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk@2.1029.2
+
+      - name: Compile Python
+        run: python -m py_compile app.py lambda/lambda_function.py lambda/static_upload_lambda.py
+
+      - name: Run unit tests
+        run: python -m unittest tests/test_subtitle_parsing.py
+
+      - name: Check static site JS
+        run: node --check static_stie/assets/populate-essays.js
+
+      - name: CDK synth
+        run: cdk synth --quiet
