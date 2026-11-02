@@ -290,9 +290,13 @@ function updateSearchStatus(matchCount, query) {
     }
 
     statusElement.hidden = false;
-    statusElement.textContent = matchCount === 0
-        ? `No essays match “${query}”`
-        : `${matchCount} essays match “${query}”`;
+    if (matchCount === 0) {
+        statusElement.textContent = `No essays match “${query}”`;
+    } else if (matchCount === 1) {
+        statusElement.textContent = `1 essay matches “${query}”`;
+    } else {
+        statusElement.textContent = `${matchCount} essays match “${query}”`;
+    }
 }
 
 function hideSearchStatus() {
