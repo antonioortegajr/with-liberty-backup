@@ -1,5 +1,5 @@
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Avenir Next', Avenir, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
     background-color: rgba(249, 245, 228, 0.51);
@@ -7,10 +7,15 @@ body {
     line-height: 1.6;
 }
 
+h1, h2, h3, h4, h5, h6,
+.article-title {
+    font-family: 'EB Garamond', Georgia, serif;
+}
+
 #author-name {
     background-color: #404040;
     color: white;
-    font-family: 'Bodoni Moda', 'Bodoni Moda', serif;
+    font-family: 'EB Garamond', Georgia, serif;
     font-weight: normal;
     text-align: center;
     margin: 0;
@@ -105,7 +110,7 @@ h1 {
     text-align: center;
     padding: 20px;
     margin-top: 40px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Avenir Next', Avenir, Helvetica, Arial, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
