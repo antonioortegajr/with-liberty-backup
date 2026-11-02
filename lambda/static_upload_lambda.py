@@ -16,13 +16,16 @@ def extract_metadata_from_content(content, filename):
     like_count = '0'
     
     # Extract title from first line (usually starts with #)
+    title_line_index = None
     for i in range(min(10, len(lines))):
         line = lines[i].strip()
         if line.startswith('# '):
             title = line[2:].strip()
+            title_line_index = i
             break
         elif line.startswith('## '):
             title = line[3:].strip()
+            title_line_index = i
             break
     
     # If no title found, use filename
@@ -30,11 +33,16 @@ def extract_metadata_from_content(content, filename):
         title = filename.replace('.md', '').replace('-', ' ').replace('_', ' ')
         title = ' '.join(word.capitalize() for word in title.split())
     
-    # Try to extract subtitle from second heading
-    for i in range(min(20, len(lines))):
-        line = lines[i].strip()
-        if line.startswith('### ') and not subtitle:
-            subtitle = line[4:].strip()
+    # Extract subtitle from the first '## ' heading after the title and before the date
+    if title_line_index is not None:
+        for i in range(title_line_index + 1, len(lines)):
+            line = lines[i].strip()
+            if not line:
+                continue
+            if line.startswith('**') and '**' in line and re.search(r'\d{4}', line):
+                break
+            if line.startswith('## '):
+                subtitle = line[3:].strip()
             break
     
     # Try to extract date from file content (look for date patterns)
