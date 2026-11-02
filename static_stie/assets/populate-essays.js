@@ -40,8 +40,10 @@ function normalizeSearchText(text) {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035'`]/g, '')
-        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036"]/g, '');
+        .replace(/[.\u2018\u2019\u201A\u201B\u2032\u2035'`]/g, '')
+        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036"]/g, '')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim();
 }
 
 function getSearchTerms(query) {
@@ -55,8 +57,10 @@ function filterEssaysByQuery(list, query) {
     }
 
     return list.filter(essay => {
-        const searchableText = normalizeSearchText(`${essay.title} ${essay.subtitle}`);
-        return terms.every(term => searchableText.includes(term));
+        const words = normalizeSearchText(`${essay.title} ${essay.subtitle}`)
+            .split(/\s+/)
+            .filter(Boolean);
+        return terms.every(term => words.some(word => word.startsWith(term)));
     });
 }
 
