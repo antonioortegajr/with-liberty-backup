@@ -76,6 +76,34 @@ def _build_thumbnail_url(image_url):
     return image_url
 
 
+def build_search_text(content):
+    """Return the unique, searchable words from a markdown article."""
+    text = content or ''
+
+    # Drop the Likes line before splitting.
+    text = re.sub(r'^\s*\*\*Likes:\*\*\s*\d+\s*$', '', text, flags=re.MULTILINE)
+
+    # Remove images completely, including images wrapped in a link.
+    text = re.sub(r'\[\s*!\[[^\]]*\]\([^)]*\)\s*\]\([^)]*\)', '', text)
+    text = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', text)
+
+    # Keep link text but drop the URL in parentheses. Bare URLs (the citation
+    # sources at the end of articles) are left for the word split below.
+    text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+
+    words = re.split(r'[\W_]+', text.lower(), flags=re.UNICODE)
+
+    unique_words = []
+    seen = set()
+    for word in words:
+        if len(word) < 2 or word.isdigit() or word in seen:
+            continue
+        seen.add(word)
+        unique_words.append(word)
+
+    return ' '.join(unique_words)
+
+
 def extract_metadata_from_content(content, filename):
     """Extract metadata from markdown content using improved logic"""
     lines = content.split('\n')
@@ -270,6 +298,7 @@ def lambda_handler(event, context):
         # Process each .md file to extract metadata
         print("📝 Extracting metadata from .md files...")
         essays_data = []
+        search_index = {}
         processed_files = set()  # Track processed files to avoid duplicates
         processed_titles = set()  # Track processed titles to avoid content duplicates
         
@@ -299,6 +328,7 @@ def lambda_handler(event, context):
                 
                 # Add file links
                 metadata['file_link'] = md_file
+                search_index[md_file] = build_search_text(content)
                 
                 essays_data.append(metadata)
                 print(f"✅ Processed: {filename} - {metadata['title']} ({metadata['date']})")
@@ -307,6 +337,7 @@ def lambda_handler(event, context):
                 print(f"❌ Error processing {md_file}: {str(e)}")
                 # Add a basic entry even if processing fails
                 filename = os.path.basename(md_file)
+                search_index[md_file] = ''
                 essays_data.append({
                     'title': filename.replace('.md', '').replace('-', ' ').title(),
                     'subtitle': '',
@@ -341,6 +372,18 @@ def lambda_handler(event, context):
             ContentType='application/json',
             CacheControl='max-age=60'
         )
+        
+        # Upload search-index.json
+        print("📤 Uploading search-index.json...")
+        search_index_json = json.dumps(search_index, indent=2)
+        s3.put_object(
+            Bucket=bucket_name,
+            Key='search-index.json',
+            Body=search_index_json,
+            ContentType='application/json',
+            CacheControl='max-age=60'
+        )
+        print(f"✅ Uploaded search-index.json ({len(search_index_json.encode('utf-8'))} bytes)")
         
         # Upload file-list.json
         print("📤 Uploading file-list.json...")
