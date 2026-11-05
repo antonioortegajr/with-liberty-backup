@@ -444,6 +444,25 @@ function sortEssaysByDate(data, ascending = false) {
     });
 }
 
+// A post is a test article only when its markdown filename starts with
+// test-article-. Titles that merely contain "test" (latest, protest) are real.
+function isTestArticleFile(fileLink) {
+    const basename = String(fileLink || '').split('/').pop();
+    return basename.startsWith('test-article-');
+}
+
+function filterEssays(data) {
+    return data.filter(essay => {
+        // Substack placeholder pages, not essays. The full re-scrape picks up
+        // a "Coming soon" post (lowercase s), so compare case-insensitively.
+        const title = String(essay.title || '').trim().toLowerCase();
+        if (title === 'page not found' || title === 'coming soon') {
+            return false;
+        }
+        return !isTestArticleFile(essay.file_link);
+    });
+}
+
 function formatLastUpdated(lastModified) {
     if (!lastModified) {
         return null;
@@ -803,15 +822,7 @@ async function initializeEssays() {
 
         essaysLastModified = response.headers.get('Last-Modified');
 
-        essaysData = await response.json();
-        
-        // Filter out unwanted articles
-        essaysData = essaysData.filter(essay => {
-            const titleLower = essay.title.toLowerCase();
-            return essay.title !== "Page not found" && 
-                   essay.title !== "Coming Soon" &&
-                   !titleLower.includes("test");
-        });
+        essaysData = filterEssays(await response.json());
 
         // Sort essays once so pagination and article lookups share the same order
         essaysData = sortEssaysByDate(essaysData, false);
