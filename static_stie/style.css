@@ -396,6 +396,14 @@ button:hover {
     color: #1c5bb0;
 }
 
+/* Footnote markers stay small and raised above the surrounding text (#36). */
+.article-content sup.footnote-ref,
+.article-content sup.footnote-number {
+    font-size: 0.75em;
+    line-height: 0;
+    vertical-align: super;
+}
+
 .article-content img {
     max-width: 100%;
     height: auto;
