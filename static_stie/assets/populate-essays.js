@@ -648,7 +648,7 @@ function displayArticle(essay, htmlContent, slug) {
     const articleHtml = `
         <article id="article-${articleId}" class="article-view">
             <header class="article-header">
-                <button class="back-button" onclick="showEssayList()" aria-label="Return to Articles list">← Back to Articles</button>
+                <button class="back-button" onclick="showEssayList()" aria-label="Show all essays">All essays</button>
                 <h1 id="article-title-${articleId}" class="article-title">${essay.title}</h1>
                 <div id="article-subtitle-${articleId}" class="article-subtitle">${essay.subtitle}</div>
                 <time id="article-date-${articleId}" class="article-metadata" datetime="${essay.date}">${essay.date}</time>
