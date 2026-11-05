@@ -270,6 +270,7 @@ test('#7/#11: only test-article- files are filtered out', () => {
     const essays = [
         { title: 'Page not found', file_link: 'page-not-found.md' },
         { title: 'Coming Soon', file_link: 'coming-soon.md' },
+        { title: 'Coming soon', file_link: 'posts/heathermedwards/coming-soon.md' },
         { title: "Alligator Alcatraz: MAGA's Latest Spectacle", file_link: 'posts/heathermedwards/alligator-alcatraz-magas-latest-spectacle.md' },
         { title: 'The Latest in MAGA Sycophancy', file_link: 'posts/heathermedwards/mt-trumpmore-the-latest-in-maga-sycophancy.md' },
         { title: 'Protest', file_link: 'posts/heathermedwards/protest.md' },

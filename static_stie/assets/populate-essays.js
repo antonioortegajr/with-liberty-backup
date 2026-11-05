@@ -453,7 +453,10 @@ function isTestArticleFile(fileLink) {
 
 function filterEssays(data) {
     return data.filter(essay => {
-        if (essay.title === "Page not found" || essay.title === "Coming Soon") {
+        // Substack placeholder pages, not essays. The full re-scrape picks up
+        // a "Coming soon" post (lowercase s), so compare case-insensitively.
+        const title = String(essay.title || '').trim().toLowerCase();
+        if (title === 'page not found' || title === 'coming soon') {
             return false;
         }
         return !isTestArticleFile(essay.file_link);
