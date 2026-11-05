@@ -4,6 +4,7 @@ let currentArticle = null;
 let activeSearchQuery = '';
 let filteredEssays = [];
 let searchDebounceTimer = null;
+let essaysLastModified = null;
 
 const ESSAYS_PER_PAGE = 20;
 const SEARCH_DEBOUNCE_MS = 200;
@@ -333,11 +334,35 @@ function sortEssaysByDate(data, ascending = false) {
     });
 }
 
-function updateArticleCount(count) {
+function formatLastUpdated(lastModified) {
+    if (!lastModified) {
+        return null;
+    }
+
+    const date = new Date(lastModified);
+    if (isNaN(date.getTime())) {
+        return null;
+    }
+
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
+function updateArticleCount(count, lastModified = essaysLastModified) {
     const articleCountElement = document.getElementById('article-count');
     if (articleCountElement) {
         const articleText = count === 1 ? 'article' : 'articles';
-        articleCountElement.textContent = `${count} ${articleText} published`;
+        const countText = `${count} ${articleText} published`;
+        const updatedText = formatLastUpdated(lastModified);
+
+        if (updatedText) {
+            articleCountElement.innerHTML = `${countText} · <span id="last-updated">Last updated ${updatedText}</span>`;
+        } else {
+            articleCountElement.textContent = countText;
+        }
     }
 }
 
@@ -628,7 +653,9 @@ async function initializeEssays() {
         if (!response.ok) {
             throw new Error(`Failed to load essays data: ${response.status}`);
         }
-        
+
+        essaysLastModified = response.headers.get('Last-Modified');
+
         essaysData = await response.json();
         
         // Filter out unwanted articles
