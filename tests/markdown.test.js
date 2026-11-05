@@ -106,3 +106,31 @@ test('italics never span a blank line', () => {
     const html = markdownToHtml('an _open underscore\n\nand another_ later');
     assert.ok(!html.includes('<em'), html);
 });
+
+test('#36: body footnote references render as superscript', () => {
+    const url = 'https://example.com/post#footnote-2-157791656';
+    const html = markdownToHtml(`Our neighbors.[2](${url}) agreed.`);
+    assert.ok(html.includes(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="external-link"><sup class="footnote-ref">2</sup></a>`), html);
+    assert.ok(!html.includes('>2</a>'), html);
+});
+
+test('#36: end-of-article footnote sources render as superscript', () => {
+    const url = 'https://example.com/post#footnote-anchor-3-157791656';
+    const html = markdownToHtml(`[3](${url})\n\nHeather M. Edwards, *A Source Title*.`);
+    assert.ok(html.includes(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="external-link"><sup class="footnote-number">3</sup></a>`), html);
+    assert.ok(!html.includes('>3</a>'), html);
+});
+
+test('#36: numeric links that are not footnotes are left alone', () => {
+    const html = markdownToHtml('See [2](https://example.com/page/2) for details.');
+    assert.ok(html.includes('<a href="https://example.com/page/2" target="_blank" rel="noopener noreferrer" class="external-link">2</a>'), html);
+    assert.ok(!html.includes('<sup'), html);
+});
+
+test('#36: footnote links keep their href unchanged', () => {
+    const bodyUrl = 'https://example.com/post#footnote-2-157791656';
+    const sourceUrl = 'https://example.com/post#footnote-anchor-2-157791656';
+    const html = markdownToHtml(`Body.[2](${bodyUrl})\n\n[2](${sourceUrl})\n\nSource.`);
+    assert.ok(html.includes(`href="${bodyUrl}"`), html);
+    assert.ok(html.includes(`href="${sourceUrl}"`), html);
+});

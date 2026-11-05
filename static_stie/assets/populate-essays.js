@@ -261,8 +261,18 @@ function markdownToHtml(markdown) {
     html = html.replace(new RegExp(`!\\[([^\\]]*)\\]\\(${URL}\\)`, 'g'),
         (match, alt, src) => stash(imageTag(alt, src)));
 
-    const linkTag = (href, inner) =>
-        `<a href="${escapeAttr(unescapeMarkdown(href))}" target="_blank" rel="noopener noreferrer" class="external-link">${inner}</a>`;
+    const linkTag = (href, inner) => {
+        const target = unescapeMarkdown(href);
+        // Substack footnotes are links whose text is only the number and whose
+        // URL points at a #footnote- anchor. Body references use
+        // #footnote-<n>-<id>; the end-of-article source list uses
+        // #footnote-anchor-<n>-<id> (#36).
+        if (/^\d+$/.test(inner) && target.includes('#footnote-')) {
+            const className = target.includes('#footnote-anchor-') ? 'footnote-number' : 'footnote-ref';
+            inner = `<sup class="${className}">${inner}</sup>`;
+        }
+        return `<a href="${escapeAttr(target)}" target="_blank" rel="noopener noreferrer" class="external-link">${inner}</a>`;
+    };
 
     // A link wrapped around a whole heading (post cards): link inside the heading
     html = html.replace(new RegExp(`\\[\\s*<h([23]) ([^>]*)>([^<]*)</h\\1>\\s*\\]\\(${URL}\\)`, 'g'),
