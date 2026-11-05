@@ -428,6 +428,12 @@ button:hover {
     vertical-align: super;
 }
 
+/* Briefly mark where a footnote link landed (#6). */
+.article-content .footnote-highlight {
+    background-color: #fff3cd;
+    transition: background-color 0.3s ease;
+}
+
 .article-content img {
     max-width: 100%;
     height: auto;

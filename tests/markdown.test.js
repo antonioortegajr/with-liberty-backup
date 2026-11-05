@@ -10,7 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static_stie/assets/popul
 const sandbox = { document: { addEventListener() {} }, window: {}, console };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
-const { markdownToHtml, formatLastUpdated, renderThumbnail } = sandbox;
+const { markdownToHtml, formatLastUpdated, renderThumbnail, isFootnoteHash } = sandbox;
 
 const IMG = 'https://substackcdn.com/image/fetch/$s_!0X-R!,w_1456,c_limit/abc_903x935.jpeg';
 const IMG_FULL = 'https://substackcdn.com/image/fetch/$s_!0X-R!,f_auto/abc_903x935.jpeg';
@@ -110,14 +110,24 @@ test('italics never span a blank line', () => {
 test('#36: body footnote references render as superscript', () => {
     const url = 'https://example.com/post#footnote-2-157791656';
     const html = markdownToHtml(`Our neighbors.[2](${url}) agreed.`);
-    assert.ok(html.includes(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="external-link"><sup class="footnote-ref">2</sup></a>`), html);
+    const anchor = html.match(/<a [^>]*id="fnref-2"[^>]*>/);
+    assert.ok(anchor, html);
+    assert.ok(anchor[0].includes('href="#fn-2"'), html);
+    assert.ok(anchor[0].includes('data-footnote-target="fn-2"'), html);
+    assert.ok(!anchor[0].includes('target="_blank"'), html);
+    assert.ok(html.includes('<sup class="footnote-ref">2</sup></a>'), html);
     assert.ok(!html.includes('>2</a>'), html);
 });
 
 test('#36: end-of-article footnote sources render as superscript', () => {
     const url = 'https://example.com/post#footnote-anchor-3-157791656';
     const html = markdownToHtml(`[3](${url})\n\nHeather M. Edwards, *A Source Title*.`);
-    assert.ok(html.includes(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="external-link"><sup class="footnote-number">3</sup></a>`), html);
+    const anchor = html.match(/<a [^>]*id="fn-3"[^>]*>/);
+    assert.ok(anchor, html);
+    assert.ok(anchor[0].includes('href="#fnref-3"'), html);
+    assert.ok(anchor[0].includes('data-footnote-target="fnref-3"'), html);
+    assert.ok(!anchor[0].includes('target="_blank"'), html);
+    assert.ok(html.includes('<sup class="footnote-number">3</sup></a>'), html);
     assert.ok(!html.includes('>3</a>'), html);
 });
 
@@ -127,12 +137,43 @@ test('#36: numeric links that are not footnotes are left alone', () => {
     assert.ok(!html.includes('<sup'), html);
 });
 
-test('#36: footnote links keep their href unchanged', () => {
+test('#6: footnote links point at anchors on the same page', () => {
     const bodyUrl = 'https://example.com/post#footnote-2-157791656';
     const sourceUrl = 'https://example.com/post#footnote-anchor-2-157791656';
     const html = markdownToHtml(`Body.[2](${bodyUrl})\n\n[2](${sourceUrl})\n\nSource.`);
-    assert.ok(html.includes(`href="${bodyUrl}"`), html);
-    assert.ok(html.includes(`href="${sourceUrl}"`), html);
+    assert.ok(html.includes('href="#fn-2"'), html);
+    assert.ok(html.includes('href="#fnref-2"'), html);
+    assert.ok(!html.includes(`href="${bodyUrl}"`), html);
+    assert.ok(!html.includes(`href="${sourceUrl}"`), html);
+});
+
+test('#6: a paragraph that is only a bare URL becomes an external link', () => {
+    const url = 'https://example.com/a_b/c%20d';
+    const html = markdownToHtml(url);
+    assert.ok(html.includes(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="external-link">${url}</a>`), html);
+});
+
+test('#6: an angle-bracket URL becomes an external link anywhere', () => {
+    const url = 'https://example.com/a_b%20c';
+    const html = markdownToHtml(`See <${url}> now.`);
+    assert.ok(html.includes(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="external-link">${url}</a>`), html);
+});
+
+test('#6: a bare URL in the middle of a sentence is not linked', () => {
+    const url = 'https://example.com/a_b';
+    const html = markdownToHtml(`Read ${url} for details.`);
+    assert.ok(!html.includes('<a '), html);
+    assert.ok(html.includes(url), html);
+});
+
+test('#6: footnote hashes are not treated as article slugs', () => {
+    assert.equal(isFootnoteHash('#fn-2'), true);
+    assert.equal(isFootnoteHash('fn-2'), true);
+    assert.equal(isFootnoteHash('#fnref-2'), true);
+    assert.equal(isFootnoteHash('fnref-2-157791656'), true);
+    assert.equal(isFootnoteHash('#some-article-slug'), false);
+    assert.equal(isFootnoteHash('#footnote-2-157791656'), false);
+    assert.equal(isFootnoteHash(''), false);
 });
 
 test('#10: thumbnail renders an img with the escaped URL', () => {

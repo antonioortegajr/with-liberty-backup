@@ -15,6 +15,13 @@ function getArticleSlugFromUrl() {
     return hash ? hash.substring(1) : null;
 }
 
+// Footnote anchors (#fn-2, #fnref-2) must not be treated as article slugs by
+// the hash router (#6).
+function isFootnoteHash(hash) {
+    const value = String(hash || '').replace(/^#/, '');
+    return value.startsWith('fn-') || value.startsWith('fnref-');
+}
+
 function getRequestedPage() {
     const rawPage = new URLSearchParams(window.location.search).get('page');
     if (rawPage === null || !/^\d+$/.test(rawPage)) {
@@ -129,6 +136,9 @@ function generateArticleSlug(title) {
 
 function handleUrlNavigation(options = {}) {
     const { updateHistory = true } = options;
+    if (isFootnoteHash(window.location.hash)) {
+        return;
+    }
     syncSearchStateFromUrl();
     const slug = getArticleSlugFromUrl();
     if (slug) {
@@ -270,15 +280,25 @@ function markdownToHtml(markdown) {
     html = html.replace(new RegExp(`!\\[([^\\]]*)\\]\\(${URL}\\)`, 'g'),
         (match, alt, src) => stash(imageTag(alt, src)));
 
+    const externalLinkTag = (url) => {
+        const target = unescapeMarkdown(url);
+        return `<a href="${escapeAttr(target)}" target="_blank" rel="noopener noreferrer" class="external-link">${escapeAttr(target)}</a>`;
+    };
+
     const linkTag = (href, inner) => {
         const target = unescapeMarkdown(href);
         // Substack footnotes are links whose text is only the number and whose
         // URL points at a #footnote- anchor. Body references use
         // #footnote-<n>-<id>; the end-of-article source list uses
-        // #footnote-anchor-<n>-<id> (#36).
+        // #footnote-anchor-<n>-<id> (#36). Link them to anchors on this page
+        // instead of back to Substack (#6).
         if (/^\d+$/.test(inner) && target.includes('#footnote-')) {
-            const className = target.includes('#footnote-anchor-') ? 'footnote-number' : 'footnote-ref';
-            inner = `<sup class="${className}">${inner}</sup>`;
+            const number = inner;
+            const isSource = target.includes('#footnote-anchor-');
+            const className = isSource ? 'footnote-number' : 'footnote-ref';
+            const id = isSource ? `fn-${number}` : `fnref-${number}`;
+            const targetId = isSource ? `fnref-${number}` : `fn-${number}`;
+            return `<a id="${id}" href="#${targetId}" data-footnote-target="${targetId}"><sup class="${className}">${number}</sup></a>`;
         }
         return `<a href="${escapeAttr(target)}" target="_blank" rel="noopener noreferrer" class="external-link">${inner}</a>`;
     };
@@ -290,6 +310,16 @@ function markdownToHtml(markdown) {
     // Link text may wrap onto a second line, but never across a blank line
     html = html.replace(new RegExp(`\\[((?:[^\\]\\n]|\\n(?!\\n))+)\\]\\(${URL}\\)`, 'g'),
         (match, text, href) => stash(linkTag(href, renderEmphasis(text))));
+
+    // Most footnote sources are a bare URL on its own line. A paragraph that
+    // is only a URL (optionally in angle brackets) becomes a link, as does an
+    // angle-bracket URL anywhere. Stash them so the emphasis rules cannot
+    // mangle underscores or asterisks inside the URL (#6).
+    const HTTP_URL = 'https?:\\/\\/[^\\s<>]+';
+    html = html.replace(new RegExp(`(^|\\n\\n)[ \\t]*(?:<(${HTTP_URL})>|(${HTTP_URL}))[ \\t]*(?=\\n\\n|$)`, 'g'),
+        (match, lead, bracketed, bare) => `${lead}${stash(externalLinkTag(bracketed || bare))}`);
+
+    html = html.replace(/<(https?:\/\/[^\s<>]+)>/g, (match, url) => stash(externalLinkTag(url)));
 
     // Embedded-post cards: one link wrapped around an image, a title and a
     // "Read full story" link, across several paragraphs. The card already
@@ -638,6 +668,28 @@ function displayArticle(essay, htmlContent, slug) {
     `;
     
     essaysContainer.innerHTML = articleHtml;
+
+    // Footnote links jump within the article without touching the URL hash,
+    // which the router uses for article slugs (#6).
+    const articleContent = document.getElementById(`article-content-${articleId}`);
+    if (articleContent) {
+        articleContent.addEventListener('click', (event) => {
+            const link = event.target.closest('a[data-footnote-target]');
+            if (!link) {
+                return;
+            }
+            event.preventDefault();
+            const targetId = link.getAttribute('data-footnote-target');
+            const target = document.getElementById(targetId);
+            if (!target) {
+                return;
+            }
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('footnote-highlight');
+            setTimeout(() => target.classList.remove('footnote-highlight'), 2000);
+        });
+    }
+
     hideSearchStatus();
     currentArticle = essay;
 }
