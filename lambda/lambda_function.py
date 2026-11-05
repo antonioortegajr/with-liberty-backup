@@ -4,7 +4,76 @@ import json
 import re
 import tempfile
 from datetime import datetime
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from scrape import start_scraping
+
+THUMBNAIL_OPTIONS = 'w_160,h_160,c_fill,f_auto,q_auto:good,fl_progressive:steep,g_auto'
+
+
+def _find_first_image_url(content):
+    """Return the URL of the first markdown image in the content."""
+    match = re.search(r'!\[[^\]]*\]\(([^)\s]+)\)', content)
+    return match.group(1) if match else ''
+
+
+def _resize_substack_image(url):
+    """Swap the Substack CDN transform options for square thumbnail options."""
+    parsed = urlparse(url)
+    prefix = '/image/fetch/'
+    if not parsed.path.startswith(prefix):
+        return url
+
+    first_segment, separator, original = parsed.path[len(prefix):].partition('/')
+    if not separator:
+        return url
+
+    if first_segment.startswith('$'):
+        # Keep the signed token ($s_!...!) and replace only the options after it.
+        token = first_segment.split(',', 1)[0]
+        first_segment = f'{token},{THUMBNAIL_OPTIONS}'
+    else:
+        first_segment = THUMBNAIL_OPTIONS
+
+    path = f'{prefix}{first_segment}/{original}'
+    return urlunparse(parsed._replace(path=path))
+
+
+def _resize_unsplash_image(url):
+    """Replace the Unsplash width and add square crop parameters."""
+    parsed = urlparse(url)
+    params = parse_qsl(parsed.query, keep_blank_values=True)
+    resized = []
+    seen = set()
+    for key, value in params:
+        if key == 'w':
+            value = '160'
+        elif key == 'h':
+            value = '160'
+        elif key == 'fit':
+            value = 'crop'
+        if key in ('w', 'h', 'fit'):
+            seen.add(key)
+        resized.append((key, value))
+
+    for key, value in (('h', '160'), ('fit', 'crop')):
+        if key not in seen:
+            resized.append((key, value))
+
+    return urlunparse(parsed._replace(query=urlencode(resized)))
+
+
+def _build_thumbnail_url(image_url):
+    """Turn a hero image URL into a small square thumbnail URL."""
+    if not image_url:
+        return ''
+
+    host = urlparse(image_url).hostname or ''
+    if host == 'substackcdn.com':
+        return _resize_substack_image(image_url)
+    if host == 'images.unsplash.com':
+        return _resize_unsplash_image(image_url)
+    return image_url
+
 
 def extract_metadata_from_content(content, filename):
     """Extract metadata from markdown content using improved logic"""
@@ -85,11 +154,14 @@ def extract_metadata_from_content(content, filename):
     if not date:
         date = 'Date not found'
     
+    thumbnail = _build_thumbnail_url(_find_first_image_url(content))
+
     return {
         'title': title,
         'subtitle': subtitle,
         'like_count': like_count,
-        'date': date
+        'date': date,
+        'thumbnail': thumbnail
     }
 
 def upload_file_to_s3(s3_client, bucket_name, local_file_path, s3_key):
@@ -273,6 +345,7 @@ def lambda_handler(event, context):
                     'subtitle': '',
                     'like_count': '0',
                     'date': 'Date not found',
+                    'thumbnail': '',
                     'file_link': md_file,
                     'html_link': md_file.replace('.md', '.html')
                 })

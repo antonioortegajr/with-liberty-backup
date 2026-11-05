@@ -10,7 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static_stie/assets/popul
 const sandbox = { document: { addEventListener() {} }, window: {}, console };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
-const { markdownToHtml, formatLastUpdated } = sandbox;
+const { markdownToHtml, formatLastUpdated, renderThumbnail } = sandbox;
 
 const IMG = 'https://substackcdn.com/image/fetch/$s_!0X-R!,w_1456,c_limit/abc_903x935.jpeg';
 const IMG_FULL = 'https://substackcdn.com/image/fetch/$s_!0X-R!,f_auto/abc_903x935.jpeg';
@@ -133,6 +133,24 @@ test('#36: footnote links keep their href unchanged', () => {
     const html = markdownToHtml(`Body.[2](${bodyUrl})\n\n[2](${sourceUrl})\n\nSource.`);
     assert.ok(html.includes(`href="${bodyUrl}"`), html);
     assert.ok(html.includes(`href="${sourceUrl}"`), html);
+});
+
+test('#10: thumbnail renders an img with the escaped URL', () => {
+    const url = 'https://substackcdn.com/image/fetch/$s_!0X-R!,w_160,h_160,c_fill/https%3A%2F%2Fexample.com%2Fa.jpg?x=1&y=2';
+    const html = renderThumbnail(url);
+    assert.ok(html.includes('class="essay-thumbnail"'), html);
+    assert.ok(html.includes('width="80"'), html);
+    assert.ok(html.includes('height="80"'), html);
+    assert.ok(html.includes('loading="lazy"'), html);
+    assert.ok(html.includes('decoding="async"'), html);
+    assert.ok(html.includes('alt=""'), html);
+    assert.ok(html.includes('src="https://substackcdn.com/image/fetch/$s_!0X-R!,w_160,h_160,c_fill/https%3A%2F%2Fexample.com%2Fa.jpg?x=1&amp;y=2"'), html);
+});
+
+test('#10: missing or empty thumbnail renders nothing', () => {
+    assert.equal(renderThumbnail(), '');
+    assert.equal(renderThumbnail(''), '');
+    assert.equal(renderThumbnail(null), '');
 });
 
 test('#5: valid Last-Modified formats as a short local date', () => {

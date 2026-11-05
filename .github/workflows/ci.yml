@@ -34,7 +34,7 @@ jobs:
         run: python -m py_compile app.py lambda/lambda_function.py lambda/static_upload_lambda.py
 
       - name: Run unit tests
-        run: python -m unittest tests/test_subtitle_parsing.py
+        run: python -m unittest tests/test_subtitle_parsing.py tests/test_thumbnail.py
 
       - name: Check static site JS
         run: node --check static_stie/assets/populate-essays.js
