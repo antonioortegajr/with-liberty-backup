@@ -225,6 +225,14 @@ function escapeAttr(text) {
     return text.replace(/&(?![a-z]+;|#\d+;)/gi, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
+// Decorative square thumbnail shown to the left of an essay title (#10).
+function renderThumbnail(thumbnail) {
+    if (!thumbnail) {
+        return '';
+    }
+    return `<img class="essay-thumbnail" src="${escapeAttr(thumbnail)}" width="80" height="80" loading="lazy" decoding="async" alt="">`;
+}
+
 // Simple markdown to HTML converter
 function markdownToHtml(markdown) {
     let html = markdown;
@@ -451,11 +459,18 @@ function renderPage(list, page) {
     const listItems = pageItems.map((essay) => {
         const essayId = essay.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const slug = generateArticleSlug(essay.title);
-        return `
-        <li id="essay-item-${essayId}" class="essay-item">
-            <a href="#" class="essay-link" data-filename="${essay.file_link}" data-slug="${slug}" id="essay-link-${essayId}" aria-describedby="essay-subtitle-${essayId} essay-date-${essayId}">${essay.title}</a>
+        const thumbnail = renderThumbnail(essay.thumbnail);
+        const essayDetails = `<a href="#" class="essay-link" data-filename="${essay.file_link}" data-slug="${slug}" id="essay-link-${essayId}" aria-describedby="essay-subtitle-${essayId} essay-date-${essayId}">${essay.title}</a>
             <div id="essay-subtitle-${essayId}" class="subtitle">${essay.subtitle}</div>
             <time id="essay-date-${essayId}" class="metadata" datetime="${essay.date}">${essay.date}</time>
+        `;
+        const body = thumbnail
+            ? `${thumbnail}
+            <div class="essay-details">${essayDetails}</div>`
+            : essayDetails;
+        return `
+        <li id="essay-item-${essayId}" class="essay-item${thumbnail ? ' has-thumbnail' : ''}">
+            ${body}
         </li>
     `}).join('');
 
