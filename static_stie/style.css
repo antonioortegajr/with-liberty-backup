@@ -188,6 +188,11 @@ h1 {
     text-align: center;
 }
 
+#last-updated {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
 .copyright {
     font-size: 14px;
     margin: 0 0 11px;

@@ -10,7 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static_stie/assets/popul
 const sandbox = { document: { addEventListener() {} }, window: {}, console };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
-const { markdownToHtml } = sandbox;
+const { markdownToHtml, formatLastUpdated } = sandbox;
 
 const IMG = 'https://substackcdn.com/image/fetch/$s_!0X-R!,w_1456,c_limit/abc_903x935.jpeg';
 const IMG_FULL = 'https://substackcdn.com/image/fetch/$s_!0X-R!,f_auto/abc_903x935.jpeg';
@@ -133,4 +133,25 @@ test('#36: footnote links keep their href unchanged', () => {
     const html = markdownToHtml(`Body.[2](${bodyUrl})\n\n[2](${sourceUrl})\n\nSource.`);
     assert.ok(html.includes(`href="${bodyUrl}"`), html);
     assert.ok(html.includes(`href="${sourceUrl}"`), html);
+});
+
+test('#5: valid Last-Modified formats as a short local date', () => {
+    const value = 'Thu, 05 Nov 2026 12:00:00 GMT';
+    const formatted = formatLastUpdated(value);
+    assert.match(formatted, /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/);
+    assert.equal(formatted, new Date(value).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    }));
+});
+
+test('#5: missing Last-Modified returns null', () => {
+    assert.equal(formatLastUpdated(null), null);
+    assert.equal(formatLastUpdated(undefined), null);
+    assert.equal(formatLastUpdated(''), null);
+});
+
+test('#5: invalid Last-Modified returns null', () => {
+    assert.equal(formatLastUpdated('not a date'), null);
 });
