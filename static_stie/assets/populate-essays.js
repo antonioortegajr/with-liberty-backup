@@ -202,6 +202,28 @@ async function copyArticleUrl(url) {
     }
 }
 
+// Bold and italics. Substack exports italics as _text_ as well as *text* (#12).
+function renderEmphasis(text) {
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong class="emphasis">$1</strong>');
+    text = text.replace(/\*(.*?)\*/g, '<em class="emphasis">$1</em>');
+    // Underscores only count at word edges, so snake_case names stay intact.
+    // An italic run may span line breaks (song lyrics) but not a blank line.
+    text = text.replace(/(^|[^\w\\])_(?=\S)((?:[^_\n]|\n(?!\n))*?[^\s_])_(?!\w)/gm,
+        '$1<em class="emphasis">$2</em>');
+    // Empty italics the scraper leaves behind, e.g. "in __ 1892"
+    text = text.replace(/(\s)__[ \t]+/g, '$1');
+    return text;
+}
+
+// Drop markdown backslash escapes, e.g. \( -> (
+function unescapeMarkdown(text) {
+    return text.replace(/\\([\\`*_{}\[\]()#+\-.!])/g, '$1');
+}
+
+function escapeAttr(text) {
+    return text.replace(/&(?![a-z]+;|#\d+;)/gi, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
 // Simple markdown to HTML converter
 function markdownToHtml(markdown) {
     let html = markdown;
@@ -221,19 +243,47 @@ function markdownToHtml(markdown) {
     });
     
     html = html.replace(/^# .*$/gm, ''); // Remove entire h1 header lines completely
-    
-    // Convert bold with semantic class
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="emphasis">$1</strong>');
-    
-    // Convert italic with semantic class
-    html = html.replace(/\*(.*?)\*/g, '<em class="emphasis">$1</em>');
-    
-    // Convert links with enhanced attributes
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="external-link">$1</a>');
-    
-    // Convert images with enhanced attributes
-    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="article-image" style="max-width: 100%; height: auto; display: block; margin: 20px auto;">');
-    
+
+    // Pull images and links out into placeholders first, so the emphasis rules
+    // below can't touch the underscores and asterisks inside their URLs.
+    const tokens = [];
+    const stash = (rendered) => `\u0000${tokens.push(rendered) - 1}\u0000`;
+    const imageTag = (alt, src) =>
+        `<img src="${escapeAttr(unescapeMarkdown(src))}" alt="${escapeAttr(unescapeMarkdown(alt))}" class="article-image" style="max-width: 100%; height: auto; display: block; margin: 20px auto;">`;
+    // A URL may contain backslash-escaped parentheses, e.g. ..._\(CTE\)
+    const URL = '((?:\\\\.|[^)\\\\\\n])+)';
+
+    // Substack wraps every image in a link to the full-size image file. Render
+    // just the image; the wrapper link is what made paragraphs clickable (#35).
+    html = html.replace(new RegExp(`\\[!\\[([^\\]]*)\\]\\(${URL}\\)\\]\\(${URL}\\)`, 'g'),
+        (match, alt, src) => stash(imageTag(alt, src)));
+
+    html = html.replace(new RegExp(`!\\[([^\\]]*)\\]\\(${URL}\\)`, 'g'),
+        (match, alt, src) => stash(imageTag(alt, src)));
+
+    const linkTag = (href, inner) =>
+        `<a href="${escapeAttr(unescapeMarkdown(href))}" target="_blank" rel="noopener noreferrer" class="external-link">${inner}</a>`;
+
+    // A link wrapped around a whole heading (post cards): link inside the heading
+    html = html.replace(new RegExp(`\\[\\s*<h([23]) ([^>]*)>([^<]*)</h\\1>\\s*\\]\\(${URL}\\)`, 'g'),
+        (match, level, attrs, text, href) => stash(`<h${level} ${attrs}>${linkTag(href, renderEmphasis(text.trim()))}</h${level}>`));
+
+    // Link text may wrap onto a second line, but never across a blank line
+    html = html.replace(new RegExp(`\\[((?:[^\\]\\n]|\\n(?!\\n))+)\\]\\(${URL}\\)`, 'g'),
+        (match, text, href) => stash(linkTag(href, renderEmphasis(text))));
+
+    // Embedded-post cards: one link wrapped around an image, a title and a
+    // "Read full story" link, across several paragraphs. The card already
+    // links to the post, so drop the outer wrapper and keep the contents.
+    html = html.replace(new RegExp(`\\[(\\u0000\\d+\\u0000\\n\\n[^\\]]*?)\\]\\(${URL}\\)`, 'g'), '$1');
+
+    html = renderEmphasis(html);
+
+    // Tokens can nest (a link wrapped around an image), so restore until done
+    while (html.includes('\u0000')) {
+        html = html.replace(/\u0000(\d+)\u0000/g, (match, i) => tokens[Number(i)]);
+    }
+
     // Convert line breaks with semantic structure
     html = html.replace(/\n\n/g, '</p><p class="paragraph">');
     html = html.replace(/\n/g, '<br>');
