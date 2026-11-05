@@ -184,6 +184,30 @@ class SubstackBackupStack(Stack):
             schedule=events.Schedule.cron(minute="0", hour="12")
         )
         withliberty_rule.add_target(targets.LambdaFunction(withliberty_lambda_fn))
+
+        # Monthly full re-scrape for the backup Lambda (day 1 at 11:30 UTC)
+        original_full_rescrape_rule = events.Rule(
+            self, "OriginalSubstackMonthlyFullRescrape",
+            schedule=events.Schedule.cron(minute="30", hour="11", day="1")
+        )
+        original_full_rescrape_rule.add_target(
+            targets.LambdaFunction(
+                original_lambda_fn,
+                event=events.RuleTargetInput.from_object({"mode": "full"}),
+            )
+        )
+
+        # Monthly full re-scrape for the static site Lambda (day 1 at 12:30 UTC)
+        withliberty_full_rescrape_rule = events.Rule(
+            self, "WithLibertyMonthlyFullRescrape",
+            schedule=events.Schedule.cron(minute="30", hour="12", day="1")
+        )
+        withliberty_full_rescrape_rule.add_target(
+            targets.LambdaFunction(
+                withliberty_lambda_fn,
+                event=events.RuleTargetInput.from_object({"mode": "full"}),
+            )
+        )
         
         # Output the website URL
         cdk.CfnOutput(

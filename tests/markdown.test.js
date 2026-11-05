@@ -10,7 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static_stie/assets/popul
 const sandbox = { document: { addEventListener() {} }, window: {}, console };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
-const { markdownToHtml, formatLastUpdated, renderThumbnail, isFootnoteHash, filterEssaysByQuery } = sandbox;
+const { markdownToHtml, formatLastUpdated, renderThumbnail, isFootnoteHash, filterEssaysByQuery, filterEssays } = sandbox;
 
 const IMG = 'https://substackcdn.com/image/fetch/$s_!0X-R!,w_1456,c_limit/abc_903x935.jpeg';
 const IMG_FULL = 'https://substackcdn.com/image/fetch/$s_!0X-R!,f_auto/abc_903x935.jpeg';
@@ -264,4 +264,22 @@ test('#9: without an index only title and subtitle matches are returned', () => 
 
     const bodyOnlyResults = filterEssaysByQuery(searchEssays, 'zebra');
     assert.equal(bodyOnlyResults.length, 0);
+});
+
+test('#7/#11: only test-article- files are filtered out', () => {
+    const essays = [
+        { title: 'Page not found', file_link: 'page-not-found.md' },
+        { title: 'Coming Soon', file_link: 'coming-soon.md' },
+        { title: "Alligator Alcatraz: MAGA's Latest Spectacle", file_link: 'posts/heathermedwards/alligator-alcatraz-magas-latest-spectacle.md' },
+        { title: 'The Latest in MAGA Sycophancy', file_link: 'posts/heathermedwards/mt-trumpmore-the-latest-in-maga-sycophancy.md' },
+        { title: 'Protest', file_link: 'posts/heathermedwards/protest.md' },
+        { title: 'Test Article', file_link: 'posts/heathermedwards/test-article-hello.md' },
+        { title: 'Test Article At Root', file_link: 'test-article-root.md' },
+    ];
+    const filtered = filterEssays(essays);
+    assert.deepEqual(filtered.map(essay => essay.file_link), [
+        'posts/heathermedwards/alligator-alcatraz-magas-latest-spectacle.md',
+        'posts/heathermedwards/mt-trumpmore-the-latest-in-maga-sycophancy.md',
+        'posts/heathermedwards/protest.md',
+    ]);
 });

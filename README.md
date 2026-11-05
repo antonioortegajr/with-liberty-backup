@@ -66,6 +66,59 @@ cdk deploy
    - Upload everything to S3
    - Create the static website
 
+## Re-scraping
+
+The daily runs only read the Substack feed, which contains about 20 recent posts. To refresh older or edited essays, invoke a Lambda with a mode. Find the function names in the `SubstackBackupStack-v2` CloudFormation outputs: `OriginalLambdaFunction` (backup bucket) and `WithLibertyLambdaFunction` (static site bucket).
+
+To put both names in shell variables:
+
+```bash
+ORIGINAL_LAMBDA_FUNCTION=$(aws cloudformation describe-stacks --stack-name SubstackBackupStack-v2 --region us-east-1 \
+  --query "Stacks[0].Outputs[?OutputKey=='OriginalLambdaFunction'].OutputValue" --output text)
+WITHLIBERTY_LAMBDA_FUNCTION=$(aws cloudformation describe-stacks --stack-name SubstackBackupStack-v2 --region us-east-1 \
+  --query "Stacks[0].Outputs[?OutputKey=='WithLibertyLambdaFunction'].OutputValue" --output text)
+```
+
+The AWS CLI needs `--cli-binary-format raw-in-base64-out` so the payload is passed as raw JSON. A full re-scrape takes several minutes; the CLI may time out waiting even though the Lambda keeps running, so add `--cli-read-timeout 900` or check the Lambda's CloudWatch logs.
+
+Full re-scrape of every post in `sitemap.xml`:
+
+```bash
+aws lambda invoke \
+  --function-name "$ORIGINAL_LAMBDA_FUNCTION" \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"mode": "full"}' \
+  response.json
+```
+
+Re-scrape one article (slugs or full post URLs on the same Substack host):
+
+```bash
+aws lambda invoke \
+  --function-name "$ORIGINAL_LAMBDA_FUNCTION" \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"slugs": ["when-was-america-great"]}' \
+  response.json
+```
+
+Use the same payloads with `$WITHLIBERTY_LAMBDA_FUNCTION` to refresh the site bucket (`withliberty.heathermedwards.com`) and its generated files (`essays-data.json`, `search-index.json`, `file-list.json`):
+
+```bash
+aws lambda invoke \
+  --function-name "$WITHLIBERTY_LAMBDA_FUNCTION" \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"mode": "full"}' \
+  response.json
+
+aws lambda invoke \
+  --function-name "$WITHLIBERTY_LAMBDA_FUNCTION" \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"slugs": ["https://heathermedwards.substack.com/p/when-was-america-great"]}' \
+  response.json
+```
+
+A monthly EventBridge schedule runs a full re-scrape automatically (backup Lambda at 11:30 UTC and static-upload Lambda at 12:30 UTC on day 1 of each month).
+
 ## Configuration
 
 Set environment variables for S3 upload:

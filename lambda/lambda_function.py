@@ -8,6 +8,26 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from scrape import start_scraping
 
 THUMBNAIL_OPTIONS = 'w_160,h_160,c_fill,f_auto,q_auto:good,fl_progressive:steep,g_auto'
+TEST_ARTICLE_PREFIX = 'test-article-'
+
+
+def is_test_article(filename):
+    """True only for markdown files intentionally named as test articles."""
+    return os.path.basename(str(filename or '')).startswith(TEST_ARTICLE_PREFIX)
+
+
+def get_scrape_mode(event):
+    """Return the scrape mode and optional slugs requested by an invocation event."""
+    event = event or {}
+
+    if event.get('mode') == 'full':
+        return 'full', None
+
+    slugs = event.get('slugs')
+    if isinstance(slugs, list) and slugs:
+        return 'explicit', slugs
+
+    return 'feed', None
 
 
 def _find_first_image_url(content):
@@ -181,10 +201,12 @@ def lambda_handler(event, context):
         bucket_name = os.environ.get('BUCKET_NAME', 'tiny-article-backup')
         substack_url = os.environ.get('SUBSTACK_URL', 'https://heathermedwards.substack.com/')
         num_posts = int(os.environ.get('NUM_POSTS_TO_SCRAPE', '10'))
+        mode, slugs = get_scrape_mode(event)
         
         print(f"🪣 S3 Bucket: {bucket_name}")
         print(f"📰 Substack URL: {substack_url}")
         print(f"📊 Number of posts to scrape: {num_posts}")
+        print(f"🔁 Scrape mode: {mode}" + (f" ({len(slugs)} article(s))" if slugs else ""))
 
         s3 = boto3.client('s3')
         
@@ -198,14 +220,26 @@ def lambda_handler(event, context):
             print("🕷️ Starting Substack scraping...")
             
             # Scrape new articles from Substack
+            saved_count = 0
+            skipped_count = 0
             try:
-                essays_data = start_scraping(
+                scrape_result = start_scraping(
                     base_substack_url=substack_url,
                     md_save_dir=md_dir,
                     html_save_dir=html_dir,
-                    num_posts_to_scrape=num_posts
+                    num_posts_to_scrape=num_posts if mode == 'feed' else 0,
+                    mode=mode,
+                    slugs=slugs,
+                    return_stats=True
                 )
-                print(f"✅ Scraped {len(essays_data)} new articles")
+                if isinstance(scrape_result, dict):
+                    essays_data = scrape_result.get('essays', [])
+                    saved_count = scrape_result.get('saved', len(essays_data))
+                    skipped_count = scrape_result.get('skipped', 0)
+                else:
+                    essays_data = scrape_result
+                    saved_count = len(essays_data)
+                print(f"✅ Scraped {saved_count} new articles, skipped {skipped_count}")
             except Exception as e:
                 print(f"❌ Error during scraping: {str(e)}")
                 essays_data = []
@@ -219,7 +253,7 @@ def lambda_handler(event, context):
                 for file in files:
                     if file.endswith('.md'):
                         # Filter out test articles (safety check - shouldn't happen due to scraping filter)
-                        if 'test' in file.lower():
+                        if is_test_article(file):
                             print(f"⏭️ Skipping test article upload: {file}")
                             continue
                         
@@ -235,7 +269,7 @@ def lambda_handler(event, context):
                 for file in files:
                     if file.endswith('.html'):
                         # Filter out test articles (safety check - shouldn't happen due to scraping filter)
-                        if 'test' in file.lower():
+                        if is_test_article(file):
                             print(f"⏭️ Skipping test article upload: {file}")
                             continue
                         
@@ -314,7 +348,7 @@ def lambda_handler(event, context):
                     continue
                 
                 # Filter out test articles
-                if 'test' in title_lower or 'test' in filename.lower():
+                if is_test_article(filename):
                     print(f"⏭️ Skipping test article: {metadata['title']} (from {filename})")
                     continue
                 
@@ -331,14 +365,11 @@ def lambda_handler(event, context):
                 print(f"❌ Error processing {md_file}: {str(e)}")
                 # Add a basic entry even if processing fails, but skip test articles
                 filename = os.path.basename(md_file)
-                if 'test' in filename.lower():
+                if is_test_article(filename):
                     print(f"⏭️ Skipping test article (error case): {filename}")
                     continue
                 
                 title = filename.replace('.md', '').replace('-', ' ').title()
-                if 'test' in title.lower():
-                    print(f"⏭️ Skipping test article (error case): {title}")
-                    continue
                 
                 essays_data.append({
                     'title': title,
@@ -403,7 +434,7 @@ def lambda_handler(event, context):
         
         return {
             'statusCode': 200,
-            'body': f'Successfully scraped new articles and processed {unique_articles} total articles (skipped {duplicates_skipped} duplicates) with updated JSON files in {bucket_name}'
+            'body': f'Successfully ran {mode} scrape: saved {saved_count} articles, skipped {skipped_count}, and processed {unique_articles} total articles (skipped {duplicates_skipped} duplicates) with updated JSON files in {bucket_name}'
         }
         
     except Exception as e:
