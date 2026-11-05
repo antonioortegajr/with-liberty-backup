@@ -10,7 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, '../static_stie/assets/popul
 const sandbox = { document: { addEventListener() {} }, window: {}, console };
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox);
-const { markdownToHtml, formatLastUpdated, renderThumbnail, isFootnoteHash } = sandbox;
+const { markdownToHtml, formatLastUpdated, renderThumbnail, isFootnoteHash, filterEssaysByQuery } = sandbox;
 
 const IMG = 'https://substackcdn.com/image/fetch/$s_!0X-R!,w_1456,c_limit/abc_903x935.jpeg';
 const IMG_FULL = 'https://substackcdn.com/image/fetch/$s_!0X-R!,f_auto/abc_903x935.jpeg';
@@ -213,4 +213,55 @@ test('#5: missing Last-Modified returns null', () => {
 
 test('#5: invalid Last-Modified returns null', () => {
     assert.equal(formatLastUpdated('not a date'), null);
+});
+
+const searchEssays = [
+    { title: 'Alpha Essay', subtitle: 'On liberty', date: 'Jan 3, 2024', file_link: 'alpha.md' },
+    { title: 'Beta Essay', subtitle: 'On freedom', date: 'Jan 2, 2024', file_link: 'beta.md' },
+    { title: 'Gamma Essay', subtitle: 'On something', date: 'Jan 1, 2024', file_link: 'gamma.md' },
+];
+
+test('#9: body-only matches are found through the search index', () => {
+    const index = { 'beta.md': ['zebra'] };
+    const result = filterEssaysByQuery(searchEssays, 'zebra', index);
+    assert.equal(result.map(essay => essay.file_link).join(','), 'beta.md');
+});
+
+test('#9: title and subtitle matches come before body-only matches', () => {
+    const essays = [
+        { title: 'Zebra', subtitle: '', date: 'Jan 3, 2024', file_link: 'zebra.md' },
+        { title: 'Liberty Essay', subtitle: '', date: 'Jan 2, 2024', file_link: 'liberty.md' },
+        { title: 'Another', subtitle: '', date: 'Jan 1, 2024', file_link: 'another.md' },
+    ];
+    const index = {
+        'zebra.md': ['liberty'],
+        'liberty.md': [],
+        'another.md': ['liberty'],
+    };
+    const result = filterEssaysByQuery(essays, 'liberty', index);
+    assert.equal(result.map(essay => essay.file_link).join(','), 'liberty.md,zebra.md,another.md');
+});
+
+test('#9: multi-term queries require every term', () => {
+    const index = {
+        'alpha.md': ['alpha'],
+        'beta.md': ['alpha', 'beta'],
+        'gamma.md': ['beta'],
+    };
+    const result = filterEssaysByQuery(searchEssays, 'alpha beta', index);
+    assert.equal(result.map(essay => essay.file_link).join(','), 'beta.md');
+});
+
+test('#9: query terms match word prefixes', () => {
+    const index = { 'gamma.md': ['extraordinary'] };
+    const result = filterEssaysByQuery(searchEssays, 'extra', index);
+    assert.equal(result.map(essay => essay.file_link).join(','), 'gamma.md');
+});
+
+test('#9: without an index only title and subtitle matches are returned', () => {
+    const titleResults = filterEssaysByQuery(searchEssays, 'liberty');
+    assert.equal(titleResults.map(essay => essay.file_link).join(','), 'alpha.md');
+
+    const bodyOnlyResults = filterEssaysByQuery(searchEssays, 'zebra');
+    assert.equal(bodyOnlyResults.length, 0);
 });

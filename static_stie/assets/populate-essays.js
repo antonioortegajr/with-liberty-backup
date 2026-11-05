@@ -5,9 +5,12 @@ let activeSearchQuery = '';
 let filteredEssays = [];
 let searchDebounceTimer = null;
 let essaysLastModified = null;
+let searchIndex = null;
+let searchIndexPromise = null;
 
 const ESSAYS_PER_PAGE = 20;
 const SEARCH_DEBOUNCE_MS = 200;
+const SEARCH_INDEX_URL = './search-index.json';
 
 // URL Routing Functions
 function getArticleSlugFromUrl() {
@@ -58,18 +61,87 @@ function getSearchTerms(query) {
     return normalizeSearchText(query).split(/\s+/).filter(Boolean);
 }
 
-function filterEssaysByQuery(list, query) {
+function getEssaySearchWords(essay) {
+    return normalizeSearchText(`${essay.title} ${essay.subtitle}`)
+        .split(/\s+/)
+        .filter(Boolean);
+}
+
+function wordsMatchTerms(words, terms) {
+    return terms.every(term => words.some(word => word.startsWith(term)));
+}
+
+function filterEssaysByQuery(list, query, index = null) {
     const terms = getSearchTerms(query);
     if (terms.length === 0) {
         return list;
     }
 
-    return list.filter(essay => {
-        const words = normalizeSearchText(`${essay.title} ${essay.subtitle}`)
+    const titleMatches = [];
+    const bodyMatches = [];
+
+    list.forEach(essay => {
+        const titleWords = getEssaySearchWords(essay);
+        if (wordsMatchTerms(titleWords, terms)) {
+            titleMatches.push(essay);
+            return;
+        }
+
+        if (!index) {
+            return;
+        }
+
+        const bodyWords = index[essay.file_link] || [];
+        if (wordsMatchTerms(titleWords.concat(bodyWords), terms)) {
+            bodyMatches.push(essay);
+        }
+    });
+
+    return titleMatches.concat(bodyMatches);
+}
+
+function normalizeSearchIndex(index) {
+    const normalized = {};
+    Object.keys(index || {}).forEach(fileLink => {
+        normalized[fileLink] = normalizeSearchText(index[fileLink])
             .split(/\s+/)
             .filter(Boolean);
-        return terms.every(term => words.some(word => word.startsWith(term)));
     });
+    return normalized;
+}
+
+function rerunActiveSearch() {
+    if (!activeSearchQuery || currentArticle || getArticleSlugFromUrl()) {
+        return;
+    }
+    populateEssays(essaysData);
+}
+
+function ensureSearchIndexLoaded() {
+    if (searchIndex) {
+        return;
+    }
+
+    if (!searchIndexPromise) {
+        searchIndexPromise = fetch(SEARCH_INDEX_URL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to load search index: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(rawIndex => {
+                searchIndex = normalizeSearchIndex(rawIndex);
+                return searchIndex;
+            })
+            .catch(error => {
+                console.error('Error loading search index:', error);
+                searchIndex = {};
+                return searchIndex;
+            });
+
+        searchIndexPromise.then(rerunActiveSearch);
+    }
 }
 
 function normalizePage(page, totalPages) {
@@ -561,19 +633,27 @@ function populateEssays(data) {
     // Update article count in footer
     updateArticleCount(sortedData.length);
     
-    filteredEssays = filterEssaysByQuery(sortedData, activeSearchQuery);
+    filteredEssays = filterEssaysByQuery(sortedData, activeSearchQuery, searchIndex);
     renderPage(filteredEssays, getRequestedPage());
     updateSearchStatus(filteredEssays.length, activeSearchQuery);
+
+    if (activeSearchQuery) {
+        ensureSearchIndexLoaded();
+    }
 }
 
 function applySearch(query) {
     activeSearchQuery = query.trim();
-    filteredEssays = filterEssaysByQuery(essaysData, activeSearchQuery);
+    filteredEssays = filterEssaysByQuery(essaysData, activeSearchQuery, searchIndex);
     currentArticle = null;
 
     window.history.replaceState({}, '', buildSearchUrl(activeSearchQuery, 1));
     renderPage(filteredEssays, 1);
     updateSearchStatus(filteredEssays.length, activeSearchQuery);
+
+    if (activeSearchQuery) {
+        ensureSearchIndexLoaded();
+    }
 }
 
 function handleSearchInput() {
